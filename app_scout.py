@@ -8,36 +8,35 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 # ==========================================================
-# COORDINATE CAMPO CON PROSPETTIVA DALLA NOSTRA PANCHINA:
-# Z4 AVVERSARIO A DESTRA | Z2 AVVERSARIO A SINISTRA
+# COORDINATE CAMPO RIGOROSE (DENOMINAZIONE ESATTA SOTTOZONE)
 # ==========================================================
-# Origine attacco (Metà superiore): Rete a y=0.50, Fondo a y=1.00
 ATTACK_ORIGIN_FULL = {
-    # 1° Linea a filo rete
-    "2": (0.17, 0.53),  # Z2 Avversario (a sinistra per noi)
-    "3": (0.50, 0.53),  # Z3 Avversario (centro)
-    "4": (0.83, 0.53),  # Z4 Avversario (a destra per noi)
-    # 2° Linea / Pipe
-    "8": (0.50, 0.77),  # Pipe (Z8 avversaria)
-    "6": (0.50, 0.77),
-    "1": (0.17, 0.77),  # Z1 avversaria (per noi a sinistra)
-    "5": (0.83, 0.77),  # Z5 avversaria (per noi a destra)
+    "2": (0.17, 0.53),
+    "3": (0.50, 0.53),
+    "4": (0.83, 0.53),
+    "9": (0.17, 0.70),
+    "8": (0.50, 0.70),
+    "7": (0.83, 0.70),
+    "1": (0.17, 0.88),
+    "6": (0.50, 0.88),
+    "5": (0.83, 0.88),
 }
 
-# Arrivo palla nel nostro campo difensivo (Metà inferiore): Rete a y=0.50, Fondo a y=0.00
 DEFENSE_TARGET_FULL = {
-    # Prima linea difesa (vicino alla rete)
-    "2": (0.17, 0.44), "3": (0.50, 0.44), "4": (0.83, 0.44),
-    # Fascia centrale (tra 3m e fondo campo)
-    "7": (0.17, 0.28), "8": (0.50, 0.28), "9": (0.83, 0.28),
-    # Fondo campo difesa
-    "5": (0.17, 0.11), "6": (0.50, 0.11), "1": (0.83, 0.11),
+    "4": (0.17, 0.44),
+    "3": (0.50, 0.44),
+    "2": (0.83, 0.44),
+    "9": (0.17, 0.28),
+    "8": (0.50, 0.28),
+    "7": (0.83, 0.28),
+    "5": (0.17, 0.11),
+    "6": (0.50, 0.11),
+    "1": (0.83, 0.11),
 }
 
-# Arrivo battute nel nostro campo ricezione
 SERVE_TARGET = {
-    "2": (0.17, 0.70), "3": (0.50, 0.70), "4": (0.83, 0.70),
-    "7": (0.17, 0.45), "8": (0.50, 0.45), "9": (0.83, 0.45),
+    "4": (0.17, 0.70), "3": (0.50, 0.70), "2": (0.83, 0.70),
+    "9": (0.17, 0.45), "8": (0.50, 0.45), "7": (0.83, 0.45),
     "5": (0.17, 0.18), "6": (0.50, 0.18), "1": (0.83, 0.18),
 }
 
@@ -209,9 +208,9 @@ def parse_dvw(file_text, target_set=None):
                     
                     p_role = opp_players.get(player, {}).get("role", "")
                     if start_z == "3" or p_role == "4" or "C" in opp_players.get(player, {}).get("name", ""):
-                        if end_z in ["2", "1", "9"]:
+                        if end_z in ["2", "1", "7"]:
                             rotations[p_rot]["bases"]["K7"] += 1
-                        elif end_z in ["4", "5", "7"]:
+                        elif end_z in ["4", "5", "9"]:
                             rotations[p_rot]["bases"]["K1"] += 1
                         else:
                             rotations[p_rot]["bases"]["KC"] += 1
@@ -234,7 +233,7 @@ def parse_dvw(file_text, target_set=None):
     }
 
 # ==========================================================
-# DISEGNO TRAIETTORIE
+# MOTORE GRAFICO VETTORIALE (FRECCE & PUNTINE)
 # ==========================================================
 def draw_trajectory(c, x1, y1, x2, y2, color, line_w=1.4):
     c.setFillColor(color)
@@ -256,13 +255,13 @@ def draw_trajectory(c, x1, y1, x2, y2, color, line_w=1.4):
     c.drawPath(p, fill=1, stroke=0)
 
 # ==========================================================
-# CAMPO CON 9 SOTTO-ZONE CLICK&SCOUT TRATTEGGIATE
+# CAMPO BIANCO CON SOTTOZONE CLICK&SCOUT
 # ==========================================================
 def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
-    # Sfondo campo
-    c.setFillColor(colors.HexColor("#FEF9E7"))
+    # Sfondo campo: Bianco puro
+    c.setFillColor(colors.HexColor("#FFFFFF"))
     c.setStrokeColor(colors.black)
-    c.setLineWidth(1.0)
+    c.setLineWidth(1.2)
     c.rect(x, y, w, h, fill=1, stroke=1)
     
     net_y = y + h * 0.50
@@ -270,62 +269,57 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
     w_third = w / 3.0
     h_third = half_h / 3.0
 
-    # RETE CENTRALE SPESSA
-    c.setStrokeColor(colors.HexColor("#922B21"))
+    # RETE CENTRALE NERA
+    c.setStrokeColor(colors.black)
     c.setLineWidth(2.8)
     c.line(x, net_y, x + w, net_y)
 
-    # LINEE TRATTEGGIATE DELLE 9 SOTTOZONE CLICK&SCOUT
-    c.setStrokeColor(colors.HexColor("#D5D8DC"))
-    c.setLineWidth(0.6)
-    c.setDash(2, 2)
-
-    # 1. Corridoi verticali (dividono in 3 corsie: sinistra, centro, destra)
-    c.line(x + w_third, y, x + w_third, y + h)
-    c.line(x + 2 * w_third, y, x + 2 * w_third, y + h)
-
-    # 2. Linee orizzontali campo difesa (sotto)
-    c.line(x, net_y - h_third, x + w, net_y - h_third)       # Separa prima linea (3m) da intermedia
-    c.line(x, net_y - 2 * h_third, x + w, net_y - 2 * h_third) # Separa intermedia da fondo campo
-
-    # 3. Linee orizzontali campo attacco (sopra)
-    c.line(x, net_y + h_third, x + w, net_y + h_third)       # Separa prima linea (3m) da intermedia
-    c.line(x, net_y + 2 * h_third, x + w, net_y + 2 * h_third) # Separa intermedia da fondo campo
-    
-    # Resetta tratteggio
-    c.setDash()
-
-    # LINEE DEI 3 METRI UFFICIALI (Leggermente più marcate)
-    c.setStrokeColor(colors.HexColor("#A6ACAF"))
-    c.setLineWidth(0.8)
+    # LINEE CONTINUE 3M
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1.0)
     c.line(x, net_y + h_third, x + w, net_y + h_third)
     c.line(x, net_y - h_third, x + w, net_y - h_third)
 
-    # NUMERI SOTTOZONE IN FILIGRANA LEGGERA (Discreti in grigio)
-    c.setFont("Helvetica-Bold", 6)
-    c.setFillColor(colors.HexColor("#BDC3C7"))
+    # LINEE TRATTEGGIATE ARANCIONI
+    c.setStrokeColor(colors.HexColor("#F5B7B1"))
+    c.setLineWidth(0.8)
+    c.setDash(3, 3)
 
-    # Zone Difesa Nostra (Metà inferiore)
-    # Sotto rete: Z2 (sx), Z3 (centro), Z4 (dx)
-    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 0.5 - 2, "2")
-    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 0.5 - 2, "3")
-    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 0.5 - 2, "4")
-    # Intermedia: Z7 (sx), Z8 (centro), Z9 (dx)
-    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 1.5 - 2, "7")
-    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 1.5 - 2, "8")
-    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 1.5 - 2, "9")
-    # Fondo campo: Z5 (sx), Z6 (centro), Z1 (dx)
-    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 2.5 - 2, "5")
-    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 2.5 - 2, "6")
-    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 2.5 - 2, "1")
+    c.line(x + w_third, y, x + w_third, y + h)
+    c.line(x + 2 * w_third, y, x + 2 * w_third, y + h)
+    c.line(x, net_y + 2 * h_third, x + w, net_y + 2 * h_third)
+    c.line(x, net_y - 2 * h_third, x + w, net_y - 2 * h_third)
+    c.setDash()
 
-    # Zone Attacco Avversario (Metà superiore)
-    # A rete: Z2 (sx), Z3 (centro), Z4 (dx)
-    c.drawCentredString(x + w_third * 0.5, net_y + h_third * 0.5 - 2, "2")
-    c.drawCentredString(x + w_third * 1.5, net_y + h_third * 0.5 - 2, "3")
-    c.drawCentredString(x + w_third * 2.5, net_y + h_third * 0.5 - 2, "4")
-    # Pipe: Z8
-    c.drawCentredString(x + w_third * 1.5, net_y + h_third * 1.5 - 2, "8")
+    # SOTTOZONE METÀ SUPERIORE
+    c.setFont("Helvetica", 6)
+    c.setFillColor(colors.black)
+
+    c.drawString(x + 3, net_y + 2 * h_third + h_third - 7, "1")
+    c.drawString(x + w_third + 3, net_y + 2 * h_third + h_third - 7, "6")
+    c.drawString(x + 2 * w_third + 3, net_y + 2 * h_third + h_third - 7, "5")
+
+    c.drawString(x + 3, net_y + h_third + h_third - 7, "9")
+    c.drawString(x + w_third + 3, net_y + h_third + h_third - 7, "8")
+    c.drawString(x + 2 * w_third + 3, net_y + h_third + h_third - 7, "7")
+
+    c.drawString(x + 3, net_y + h_third - 7, "2")
+    c.drawString(x + w_third + 3, net_y + h_third - 7, "3")
+    c.drawString(x + 2 * w_third + 3, net_y + h_third - 7, "4")
+
+    # SOTTOZONE METÀ INFERIORE
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 0.5 - 3, "4")
+    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 0.5 - 3, "3")
+    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 0.5 - 3, "2")
+
+    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 1.5 - 3, "9")
+    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 1.5 - 3, "8")
+    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 1.5 - 3, "7")
+
+    c.drawCentredString(x + w_third * 0.5, net_y - h_third * 2.5 - 3, "5")
+    c.drawCentredString(x + w_third * 1.5, net_y - h_third * 2.5 - 3, "6")
+    c.drawCentredString(x + w_third * 2.5, net_y - h_third * 2.5 - 3, "1")
 
     # Box percentuali palleggiatore a rete
     if p_dist and total_att and total_att > 0:
@@ -334,17 +328,17 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
         p2 = p_dist.get("2", 0)
         
         c.setFillColor(colors.HexColor("#2C3E50"))
-        c.rect(x + 1, net_y + 9, 28, 9, fill=1, stroke=0)
-        c.rect(x + w/2 - 14, net_y + 9, 28, 9, fill=1, stroke=0)
-        c.rect(x + w - 29, net_y + 9, 28, 9, fill=1, stroke=0)
+        c.rect(x + 1, net_y + 11, 28, 9, fill=1, stroke=0)
+        c.rect(x + w/2 - 14, net_y + 11, 28, 9, fill=1, stroke=0)
+        c.rect(x + w - 29, net_y + 11, 28, 9, fill=1, stroke=0)
         
         c.setFillColor(colors.white)
         c.setFont("Helvetica-Bold", 6)
-        c.drawString(x + 3, net_y + 11, f"2:{p2*100//total_att}%")
-        c.drawString(x + w/2 - 12, net_y + 11, f"3:{p3*100//total_att}%")
-        c.drawString(x + w - 27, net_y + 11, f"4:{p4*100//total_att}%")
+        c.drawString(x + 3, net_y + 13, f"2:{p2*100//total_att}%")
+        c.drawString(x + w/2 - 12, net_y + 13, f"3:{p3*100//total_att}%")
+        c.drawString(x + w - 27, net_y + 13, f"4:{p4*100//total_att}%")
 
-    # Traiettorie attacchi reali
+    # COLORI ATTACCO: Verde (Punto), Rosso (Errore), Giallo/Ambra (In Gioco)
     for att in attacks_list:
         _, sz, ez, ev = att
         if sz in ATTACK_ORIGIN_FULL and ez in DEFENSE_TARGET_FULL:
@@ -354,18 +348,18 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
             y2 = y + DEFENSE_TARGET_FULL[ez][1] * h
             
             if ev == "#":
-                col = colors.HexColor("#229954")
+                col = colors.HexColor("#27AE60")  # Punto
                 lw = 1.6
             elif ev in ["=", "/"]:
-                col = colors.HexColor("#C0392B")
+                col = colors.HexColor("#E74C3C")  # Errore / Murato
                 lw = 1.6
             else:
-                col = colors.HexColor("#2980B9")
-                lw = 1.0
+                col = colors.HexColor("#F39C12")  # Palla in Gioco (Giallo/Ambra)
+                lw = 1.1
             draw_trajectory(c, x1, y1, x2, y2, col, line_w=lw)
 
 # ==========================================================
-# BOX BATTITORE CON LE 9 SOTTOZONE TRATTEGGIATE
+# BOX BATTITORE BIANCO
 # ==========================================================
 def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     server_counts = defaultdict(int)
@@ -391,20 +385,21 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
         c.drawString(x + 4, y + h - 18, "Nessun dato")
 
     court_h = h - header_h
-    c.setFillColor(colors.HexColor("#F2F4F4"))
-    c.setStrokeColor(colors.HexColor("#7F8C8D"))
+    # Sfondo Bianco puro
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.setStrokeColor(colors.black)
     c.setLineWidth(0.8)
     c.rect(x, y, w, court_h, fill=1, stroke=1)
     
     # Rete
-    c.setStrokeColor(colors.HexColor("#922B21"))
+    c.setStrokeColor(colors.black)
     c.setLineWidth(2.0)
     c.line(x, y + court_h, x + w, y + court_h)
 
-    # Griglia 3x3 sottozone tratteggiata
-    c.setStrokeColor(colors.HexColor("#BDC3C7"))
-    c.setLineWidth(0.5)
-    c.setDash(1.5, 1.5)
+    # Griglia tratteggiata 3x3
+    c.setStrokeColor(colors.HexColor("#F5B7B1"))
+    c.setLineWidth(0.6)
+    c.setDash(2, 2)
     w_th = w / 3.0
     h_th = court_h / 3.0
     c.line(x + w_th, y, x + w_th, y + court_h)
@@ -414,17 +409,17 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.setDash()
 
     # Numeri in filigrana
-    c.setFont("Helvetica", 5)
+    c.setFont("Helvetica", 5.5)
     c.setFillColor(colors.HexColor("#BDC3C7"))
-    c.drawCentredString(x + w_th * 0.5, y + h_th * 2.5 - 1.5, "2")
-    c.drawCentredString(x + w_th * 1.5, y + h_th * 2.5 - 1.5, "3")
-    c.drawCentredString(x + w_th * 2.5, y + h_th * 2.5 - 1.5, "4")
-    c.drawCentredString(x + w_th * 0.5, y + h_th * 1.5 - 1.5, "7")
-    c.drawCentredString(x + w_th * 1.5, y + h_th * 1.5 - 1.5, "8")
-    c.drawCentredString(x + w_th * 2.5, y + h_th * 1.5 - 1.5, "9")
-    c.drawCentredString(x + w_th * 0.5, y + h_th * 0.5 - 1.5, "5")
-    c.drawCentredString(x + w_th * 1.5, y + h_th * 0.5 - 1.5, "6")
-    c.drawCentredString(x + w_th * 2.5, y + h_th * 0.5 - 1.5, "1")
+    c.drawCentredString(x + w_th * 0.5, y + h_th * 2.5 - 2, "4")
+    c.drawCentredString(x + w_th * 1.5, y + h_th * 2.5 - 2, "3")
+    c.drawCentredString(x + w_th * 2.5, y + h_th * 2.5 - 2, "2")
+    c.drawCentredString(x + w_th * 0.5, y + h_th * 1.5 - 2, "9")
+    c.drawCentredString(x + w_th * 1.5, y + h_th * 1.5 - 2, "8")
+    c.drawCentredString(x + w_th * 2.5, y + h_th * 1.5 - 2, "7")
+    c.drawCentredString(x + w_th * 0.5, y + h_th * 0.5 - 2, "5")
+    c.drawCentredString(x + w_th * 1.5, y + h_th * 0.5 - 2, "6")
+    c.drawCentredString(x + w_th * 2.5, y + h_th * 0.5 - 2, "1")
 
     counts = defaultdict(int)
     for _, _, ez, _ in serves_list:
@@ -450,7 +445,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.6, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF (PAGINA 1: SQUADRE | PAGINA 2: INDIVIDUALI)
+# GENERATORE PDF (CON PANNELLO METRICHE MODERNO)
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
@@ -458,7 +453,7 @@ def generate_pdf(data, set_label="Gara"):
     width, height = landscape(A4)
     
     # ----------------------------------------------------
-    # PAGINA 1: SQUADRA PER ROTAZIONE (P1-P6)
+    # PAGINA 1: ROTAZIONI DI SQUADRA (P1-P6) + PANNELLO METRICHE
     # ----------------------------------------------------
     c.setFillColor(colors.HexColor("#1A252F"))
     c.rect(0, height - 34, width, 34, fill=1, stroke=0)
@@ -466,14 +461,15 @@ def generate_pdf(data, set_label="Gara"):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20, height - 20, f"STUDIO TATTICO LIVE: {data['teams']['opp']} vs {data['teams']['home']}")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Griglia Sottozone Click&Scout 1-9  |  CP vs BP  |  Errori Diretti")
+    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Campo con Sfondo Bianco  |  CP vs BP  |  Rendimento Busnago vs Avversari")
 
+    # Legenda con Giallo/Ambra per palla in gioco
     c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#229954"))
+    c.setFillColor(colors.HexColor("#27AE60"))
     c.drawString(width - 240, height - 20, "●→ Punto (#)")
-    c.setFillColor(colors.HexColor("#C0392B"))
+    c.setFillColor(colors.HexColor("#E74C3C"))
     c.drawString(width - 175, height - 20, "●→ Errore/Murato (=, /)")
-    c.setFillColor(colors.HexColor("#2980B9"))
+    c.setFillColor(colors.HexColor("#F39C12"))
     c.drawString(width - 85, height - 20, "●→ In Gioco (+, -)")
 
     positions = [1, 6, 5, 4, 3, 2]
@@ -516,61 +512,103 @@ def generate_pdf(data, set_label="Gara"):
         c.drawString(dx, by + bh - 58, f"• K7: {rot['bases'].get('K7', 0)}")
 
     # ----------------------------------------------------
-    # PANNELLO DESTRO: METRICHE SQUADRA E TARGET
+    # PANNELLO DESTRO: METRICHE CHIAVE & RENDIMENTO MODERNO
     # ----------------------------------------------------
     px = 626
     py = height - 500
     pw = width - px - 15
     ph = 466
     
-    c.setStrokeColor(colors.HexColor("#2C3E50"))
-    c.rect(px, py, pw, ph)
-    c.setFillColor(colors.HexColor("#2C3E50"))
-    c.rect(px, py + ph - 18, pw, 18, fill=1, stroke=0)
+    # Sfondo contenitore grigio sfumato chiaro
+    c.setFillColor(colors.HexColor("#F8F9F9"))
+    c.rect(px, py, pw, ph, fill=1, stroke=0)
+    c.setStrokeColor(colors.HexColor("#D5D8DC"))
+    c.setLineWidth(1)
+    c.rect(px, py, pw, ph, fill=0, stroke=1)
+
+    # Intestazione dark navy
+    c.setFillColor(colors.HexColor("#1A252F"))
+    c.rect(px, py + ph - 24, pw, 24, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(px + 8, py + ph - 13, "METRICHE CHIAVE & RENDIMENTO")
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(px + 10, py + ph - 16, "📊 METRICHE CHIAVE & RENDIMENTO")
 
-    curr_y = py + ph - 28
-
-    # 1. ERRORI DIRETTI NOSTRI
+    # 1. CARD ERRORI DIRETTI (Stile Alert Card)
+    c_y = py + ph - 32
     err_att = data["home_errors"]["attack"]
     err_srv = data["home_errors"]["serve"]
     err_tot = err_att + err_srv
     
-    c.setFillColor(colors.HexColor("#922B21"))
+    card1_h = 44
+    c.setFillColor(colors.HexColor("#FDEDEC"))  # Rosso chiaro pastello
+    c.setStrokeColor(colors.HexColor("#F5B7B1"))
+    c.rect(px + 6, c_y - card1_h, pw - 12, card1_h, fill=1, stroke=1)
+    
+    c.setFillColor(colors.HexColor("#C0392B"))
     c.setFont("Helvetica-Bold", 8)
-    c.drawString(px + 8, curr_y, f"ERRORI DIRETTI BUSNAGO: {err_tot} TOT")
-    c.setFont("Helvetica", 7)
-    c.setFillColor(colors.black)
-    c.drawString(px + 8, curr_y - 11, f"• In Battuta: {err_srv} err  |  In Attacco: {err_att} err (out/murati)")
-    c.line(px + 8, curr_y - 15, px + pw - 8, curr_y - 15)
+    c.drawString(px + 12, c_y - 12, "ERRORI DIRETTI BUSNAGO")
     
-    curr_y -= 26
+    # Badge circolare con totale errori
+    badge_x = px + pw - 24
+    badge_y = c_y - 14
+    c.setFillColor(colors.HexColor("#C0392B"))
+    c.circle(badge_x, badge_y, 10, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(badge_x, badge_y - 3.2, str(err_tot))
 
-    # 2. CONFRONTO CP vs BP
-    c.setFillColor(colors.HexColor("#1A252F"))
-    c.setFont("Helvetica-Bold", 7.8)
-    c.drawString(px + 8, curr_y, "CONFRONTO ATTACCO (CP vs BP):")
-    
-    ps = data["phase_stats"]
-    h_cp_pct = (ps["home"]["cp_kill"] / ps["home"]["cp_tot"] * 100) if ps["home"]["cp_tot"] > 0 else 0
-    o_cp_pct = (ps["opp"]["cp_kill"] / ps["opp"]["cp_tot"] * 100) if ps["opp"]["cp_tot"] > 0 else 0
-    h_bp_pct = (ps["home"]["bp_kill"] / ps["home"]["bp_tot"] * 100) if ps["home"]["bp_tot"] > 0 else 0
-    o_bp_pct = (ps["opp"]["bp_kill"] / ps["opp"]["bp_tot"] * 100) if ps["opp"]["bp_tot"] > 0 else 0
+    c.setFillColor(colors.HexColor("#78281F"))
+    c.setFont("Helvetica", 7.2)
+    c.drawString(px + 12, c_y - 25, f"• Battuta: {err_srv} errati")
+    c.drawString(px + 12, c_y - 36, f"• Attacco: {err_att} out / murati subiti")
 
-    c.setFont("Helvetica", 7)
-    c.drawString(px + 8, curr_y - 12, f"• Cambio Palla:  Busnago {h_cp_pct:.0f}%  vs  Avv {o_cp_pct:.0f}%")
-    c.drawString(px + 8, curr_y - 23, f"• Break Point:   Busnago {h_bp_pct:.0f}%  vs  Avv {o_bp_pct:.0f}%")
-    c.line(px + 8, curr_y - 28, px + pw - 8, curr_y - 28)
-    
-    curr_y -= 40
+    # 2. CARD CONFRONTO ATTACCO CP vs BP (Stile Confronto a Barre)
+    c_y = c_y - card1_h - 8
+    card2_h = 68
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor("#EAEDED"))
+    c.rect(px + 6, c_y - card2_h, pw - 12, card2_h, fill=1, stroke=1)
 
-    # 3. STATO NOSTRA SQUADRA
     c.setFillColor(colors.HexColor("#2C3E50"))
-    c.setFont("Helvetica-Bold", 7.8)
-    c.drawString(px + 8, curr_y, "FOCUS NOSTRA SQUADRA (BUSNAGO):")
-    
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(px + 12, c_y - 12, "CONFRONTO ATTACCO LIVE")
+
+    ps = data["phase_stats"]
+    h_cp = (ps["home"]["cp_kill"] / ps["home"]["cp_tot"] * 100) if ps["home"]["cp_tot"] > 0 else 0
+    o_cp = (ps["opp"]["cp_kill"] / ps["opp"]["cp_tot"] * 100) if ps["opp"]["cp_tot"] > 0 else 0
+    h_bp = (ps["home"]["bp_kill"] / ps["home"]["bp_tot"] * 100) if ps["home"]["bp_tot"] > 0 else 0
+    o_bp = (ps["opp"]["bp_kill"] / ps["opp"]["bp_tot"] * 100) if ps["opp"]["bp_tot"] > 0 else 0
+
+    # Cambio Palla
+    c.setFont("Helvetica-Bold", 7)
+    c.setFillColor(colors.HexColor("#34495E"))
+    c.drawString(px + 12, c_y - 25, f"Cambio Palla (CP):  {h_cp:.0f}%  vs  {o_cp:.0f}%")
+    # Mini barre visive
+    c.setFillColor(colors.HexColor("#2980B9"))
+    c.rect(px + 12, c_y - 34, max(4, (pw - 24) * 0.45 * (h_cp / 100)), 5, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#BDC3C7"))
+    c.rect(px + 12 + (pw - 24) * 0.50, c_y - 34, max(4, (pw - 24) * 0.45 * (o_cp / 100)), 5, fill=1, stroke=0)
+
+    # Break Point
+    c.setFont("Helvetica-Bold", 7)
+    c.setFillColor(colors.HexColor("#34495E"))
+    c.drawString(px + 12, c_y - 48, f"Break Point (BP):   {h_bp:.0f}%  vs  {o_bp:.0f}%")
+    c.setFillColor(colors.HexColor("#27AE60"))
+    c.rect(px + 12, c_y - 57, max(4, (pw - 24) * 0.45 * (h_bp / 100)), 5, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#BDC3C7"))
+    c.rect(px + 12 + (pw - 24) * 0.50, c_y - 57, max(4, (pw - 24) * 0.45 * (o_bp / 100)), 5, fill=1, stroke=0)
+
+    # 3. CARD FOCUS NOSTRA SQUADRA (BUSNAGO)
+    c_y = c_y - card2_h - 8
+    card3_h = 108
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor("#EAEDED"))
+    c.rect(px + 6, c_y - card3_h, pw - 12, card3_h, fill=1, stroke=1)
+
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(px + 12, c_y - 12, "FOCUS BUSNAGO (NOSTRA SQUADRA)")
+
     h_rec_list = []
     for num, st_r in data["home_reception"].items():
         if st_r["tot"] > 0:
@@ -602,39 +640,55 @@ def generate_pdf(data, set_label="Gara"):
         sorted_impact = sorted(player_impact.items(), key=lambda x: (x[1]["pts"] - x[1]["err"]))
         worst_perf_player = sorted_impact[0]
 
-    c.setFont("Helvetica", 7)
+    c.setFont("Helvetica", 7.2)
     c.setFillColor(colors.black)
     
+    # Ricevitore in affanno
     if worst_rec:
-        p_name = data["home_players"].get(worst_rec[0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 12, f"• Ric. più in affanno: #{worst_rec[0]} {p_name} ({worst_rec[2]:.0f}% Pos, {worst_rec[3]} err)")
+        p_name = data["home_players"].get(worst_rec[0], {}).get("name", "")[:10]
+        c.drawString(px + 12, c_y - 26, f"🎯 Ric. in affanno: #{worst_rec[0]} {p_name}")
+        c.setFont("Helvetica-Bold", 6.8)
+        c.setFillColor(colors.HexColor("#C0392B"))
+        c.drawString(px + 24, c_y - 36, f"Pos: {worst_rec[2]:.0f}% | {worst_rec[3]} err diretti")
     else:
-        c.drawString(px + 8, curr_y - 12, "• Ric. più in affanno: Nessun errore")
+        c.drawString(px + 12, c_y - 26, "🎯 Ric. in affanno: Nessun errore")
 
+    # Attaccante più servito
+    c.setFont("Helvetica", 7.2)
+    c.setFillColor(colors.black)
     if top_vol_h:
-        p_name = data["home_players"].get(top_vol_h[0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 23, f"• Attaccante più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
+        p_name = data["home_players"].get(top_vol_h[0], {}).get("name", "")[:10]
+        c.drawString(px + 12, c_y - 48, f"🔥 Più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
+    
+    # Più efficace
     if top_eff_h:
-        p_name = data["home_players"].get(top_eff_h[0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 34, f"• Attaccante più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
+        p_name = data["home_players"].get(top_eff_h[0], {}).get("name", "")[:10]
+        c.drawString(px + 12, c_y - 60, f"⚡ Più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
 
+    # Giocatore momento no
     if worst_perf_player and (worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]) < 0:
         wp_num = worst_perf_player[0]
-        wp_name = data["home_players"].get(wp_num, {}).get("name", "")[:9]
+        wp_name = data["home_players"].get(wp_num, {}).get("name", "")[:10]
         saldo = worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]
         c.setFillColor(colors.HexColor("#C0392B"))
-        c.drawString(px + 8, curr_y - 45, f"⚠️ Giocatore momento no: #{wp_num} {wp_name} (Saldo: {saldo})")
+        c.setFont("Helvetica-Bold", 7.2)
+        c.drawString(px + 12, c_y - 74, f"⚠️ Momento NO: #{wp_num} {wp_name}")
+        c.setFont("Helvetica", 6.8)
+        c.drawString(px + 24, c_y - 84, f"Saldo (Punti - Errori): {saldo}")
     else:
-        c.drawString(px + 8, curr_y - 45, "• Rendimento squadra: Equilibrato")
+        c.drawString(px + 12, c_y - 74, "• Rendimento: Equilibrato")
 
-    c.line(px + 8, curr_y - 50, px + pw - 8, curr_y - 50)
-    curr_y -= 62
+    # 4. CARD TARGET AVVERSARI (PER NOSTRA BATTUTA & MURO)
+    c_y = c_y - card3_h - 8
+    card4_h = 80
+    c.setFillColor(colors.HexColor("#EBF5FB"))  # Azzurro chiarissimo pastello
+    c.setStrokeColor(colors.HexColor("#AED6F1"))
+    c.rect(px + 6, c_y - card4_h, pw - 12, card4_h, fill=1, stroke=1)
 
-    # 4. TARGET AVVERSARI
-    c.setFillColor(colors.HexColor("#1A252F"))
-    c.setFont("Helvetica-Bold", 7.8)
-    c.drawString(px + 8, curr_y, "TARGET TATTICI SUGLI AVVERSARI:")
-    
+    c.setFillColor(colors.HexColor("#1B4F72"))
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(px + 12, c_y - 12, "DECISIONI TATTICHE AVVERSARI")
+
     opp_rec_list = []
     for num, st_r in data["opp_reception"].items():
         if st_r["tot"] > 0:
@@ -649,19 +703,19 @@ def generate_pdf(data, set_label="Gara"):
             opp_att_list.append((num, st_a["tot"], st_a["#"], eff))
     opp_att_list.sort(key=lambda x: x[1], reverse=True)
 
-    c.setFont("Helvetica", 7)
-    c.setFillColor(colors.black)
+    c.setFont("Helvetica", 7.2)
+    c.setFillColor(colors.HexColor("#1A252F"))
     if opp_rec_list:
         p_name = data["opp_players"].get(opp_rec_list[0][0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 12, f"🎯 Batti su: #{opp_rec_list[0][0]} {p_name} ({opp_rec_list[0][2]:.0f}% Pos)")
+        c.drawString(px + 12, c_y - 25, f"🎯 Batti su: #{opp_rec_list[0][0]} {p_name} ({opp_rec_list[0][2]:.0f}% Pos)")
         p_best = data["opp_players"].get(opp_rec_list[-1][0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 23, f"🛡️ Evita: #{opp_rec_list[-1][0]} {p_best} ({opp_rec_list[-1][2]:.0f}% Pos)")
+        c.drawString(px + 12, c_y - 37, f"🛡️ Evita battuta su: #{opp_rec_list[-1][0]} {p_best}")
         
     if opp_att_list:
         p_name = data["opp_players"].get(opp_att_list[0][0], {}).get("name", "")[:9]
-        c.drawString(px + 8, curr_y - 34, f"🔥 Loro palla chiave: #{opp_att_list[0][0]} ({opp_att_list[0][1]} att)")
+        c.drawString(px + 12, c_y - 49, f"🔥 Loro palla chiave: #{opp_att_list[0][0]} ({opp_att_list[0][1]} att)")
         top_eff_opp = max(opp_att_list, key=lambda x: x[3])
-        c.drawString(px + 8, curr_y - 45, f"⚡ Più pericoloso: #{top_eff_opp[0]} ({top_eff_opp[3]:.0f}% Eff)")
+        c.drawString(px + 12, c_y - 61, f"⚡ Più pericoloso a muro: #{top_eff_opp[0]} ({top_eff_opp[3]:.0f}% Eff)")
 
     c.showPage()
 
@@ -674,14 +728,14 @@ def generate_pdf(data, set_label="Gara"):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20, height - 20, f"FOCUS PREFERENZE ATTACCO INDIVIDUALI: {data['teams']['opp']}")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, f"Campo 18x9m con Sottozone 1-9  |  Posto 4 a Destra, Posto 2 a Sinistra  |  {set_label}")
+    c.drawString(20, height - 30, f"Campi a Sfondo Bianco  |  Traiettorie: Verde Punto, Rosso Errore, Giallo in Gioco  |  {set_label}")
 
     c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#229954"))
+    c.setFillColor(colors.HexColor("#27AE60"))
     c.drawString(width - 240, height - 20, "●→ Punto (#)")
-    c.setFillColor(colors.HexColor("#C0392B"))
+    c.setFillColor(colors.HexColor("#E74C3C"))
     c.drawString(width - 175, height - 20, "●→ Errore/Murato (=, /)")
-    c.setFillColor(colors.HexColor("#2980B9"))
+    c.setFillColor(colors.HexColor("#F39C12"))
     c.drawString(width - 85, height - 20, "●→ In Gioco (+, -)")
 
     f_coords = [
@@ -733,10 +787,10 @@ def generate_pdf(data, set_label="Gara"):
         c.setFont("Helvetica", 7)
         if z_start_cnt:
             top_start = max(z_start_cnt, key=z_start_cnt.get)
-            if top_start == "4": label_s = "Posto 4 (Destra)"
-            elif top_start == "2": label_s = "Posto 2 (Sinistra)"
-            elif top_start == "3": label_s = "Posto 3 (Centro)"
-            else: label_s = f"Pipe/Z{top_start} (2° Linea)"
+            if top_start in ["2", "3", "4"]:
+                label_s = f"Posto {top_start}"
+            else:
+                label_s = f"Zona {top_start} (2° Linea)"
             c.drawString(rx, fy + fb_h - 84, f"• Parte da: {label_s}")
             
         if z_end_cnt:
@@ -747,11 +801,11 @@ def generate_pdf(data, set_label="Gara"):
         c.setFillColor(colors.HexColor("#C0392B"))
         
         if z_start_cnt.get("4", 0) >= z_start_cnt.get("2", 0):
-            par = z_end_cnt.get("1", 0) + z_end_cnt.get("9", 0)
-            diag = z_end_cnt.get("5", 0) + z_end_cnt.get("7", 0)
+            par = z_end_cnt.get("1", 0) + z_end_cnt.get("7", 0)
+            diag = z_end_cnt.get("5", 0) + z_end_cnt.get("9", 0)
         else:
-            par = z_end_cnt.get("5", 0) + z_end_cnt.get("7", 0)
-            diag = z_end_cnt.get("1", 0) + z_end_cnt.get("9", 0)
+            par = z_end_cnt.get("5", 0) + z_end_cnt.get("9", 0)
+            diag = z_end_cnt.get("1", 0) + z_end_cnt.get("7", 0)
             
         if diag > par: trend = "Preferisce Diagonale"
         elif par > diag: trend = "Preferisce Parallela"
@@ -769,7 +823,7 @@ def generate_pdf(data, set_label="Gara"):
 def main():
     st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
     st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-    st.write("Dossier Completo con Sottozone Click&Scout 1-9 tratteggiate, CP vs BP, Errori e Focus Individuali.")
+    st.write("Dossier Completo: Sfondo Bianco, Frecce Colorate (Verde/Rosso/Giallo) e Dashboard Metriche Moderna.")
 
     dvw_file = st.file_uploader("Trascina qui il file .dvw di Click&Scout:", type=["dvw"])
     
