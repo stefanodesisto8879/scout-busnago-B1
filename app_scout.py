@@ -9,36 +9,11 @@ from reportlab.pdfgen import canvas
 import streamlit as st
 
 # ==========================================================
-# COORDINATE PRECISE CAMPO PALLAVOLO
-# Rete in alto (y=1.0), Fondo campo in basso (y=0.0)
-# ==========================================================
-ATTACK_ORIGIN = {
-    "4": (0.18, 0.88),  # Posto 4 (Banda)
-    "3": (0.50, 0.88),  # Posto 3 (Centro)
-    "2": (0.82, 0.88),  # Posto 2 (Opposto / Fast)
-    "8": (0.50, 0.55),  # Pipe
-    "6": (0.50, 0.55),
-}
-
-DEFENSE_TARGET = {
-    "1": (0.80, 0.15),
-    "6": (0.50, 0.15),
-    "5": (0.20, 0.15),
-    "9": (0.80, 0.45),
-    "8": (0.50, 0.45),
-    "7": (0.20, 0.45),
-    "2": (0.80, 0.70),
-    "3": (0.50, 0.70),
-    "4": (0.20, 0.70),
-}
-
-
-# ==========================================================
 # PARSER CLICK&SCOUT (.dvw)
 # ==========================================================
 def parse_dvw(file_text, target_set=None):
     lines = file_text.splitlines()
-    teams = {"home": "Home", "opp": "Opponent"}
+    teams = {"home": "Busnago", "opp": "Avversario"}
     opp_players = {}
 
     idx = 0
@@ -128,3 +103,35 @@ def parse_dvw(file_text, target_set=None):
 
         traj_match = re.search(r"~(\d)(\d)", code)
         start_z = traj_match.group(1) if traj_match else ""
+        end_z = traj_match.group(2) if traj_match else ""
+
+        if skill == "R":
+            reception_stats[player]["tot"] += 1
+            if eval_char in reception_stats[player]:
+                reception_stats[player][eval_char] += 1
+        elif skill == "A":
+            attack_stats[player]["tot"] += 1
+            if eval_char in attack_stats[player]:
+                attack_stats[player][eval_char] += 1
+
+            if start_z:
+                rotations[p_rot]["total_att"] += 1
+                rotations[p_rot]["att_dist"][start_z] += 1
+                rotations[p_rot]["attacks"].append(
+                    (player, start_z, end_z, eval_char)
+                )
+
+                p_role = opp_players.get(player, {}).get("role", "")
+                if (
+                    start_z == "3"
+                    or p_role == "4"
+                    or "C" in opp_players.get(player, {}).get("name", "")
+                ):
+                    if end_z in ["2", "1"]:
+                        rotations[p_rot]["bases"]["K7"] += 1
+                    elif end_z in ["4", "5"]:
+                        rotations[p_rot]["bases"]["K1"] += 1
+                    else:
+                        rotations[p_rot]["bases"]["KC"] += 1
+        elif skill == "S":
+            if start_z and end_z:
