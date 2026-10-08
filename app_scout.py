@@ -535,9 +535,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = py + ph - 28
 
-    # ====================================================
     # 1. CARD CONFRONTO PUNTI DIRETTI (Attacco, Ace, Muro)
-    # ====================================================
     card_pts_h = 66
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#D5D8DC"))
@@ -594,9 +592,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = c_y - card_pts_h - 5
 
-    # ====================================================
     # 2. CARD ERRORI DIRETTI (Alert Card)
-    # ====================================================
     card_err_h = 38
     err_att = data["home_errors"]["attack"]
     err_srv = data["home_errors"]["serve"]
@@ -625,9 +621,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = c_y - card_err_h - 5
 
-    # ====================================================
     # 3. CARD CAMBIO PALLA vs BREAK POINT
-    # ====================================================
     card_phase_h = 50
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#EAEDED"))
@@ -659,9 +653,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = c_y - card_phase_h - 5
 
-    # ====================================================
     # 4. CARD FOCUS BUSNAGO (CON DETTAGLIO RICEZIONE >= 5)
-    # ====================================================
     card_busnago_h = 135
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#EAEDED"))
@@ -671,7 +663,6 @@ def generate_pdf(data, set_label="Gara"):
     c.setFont("Helvetica-Bold", 7.8)
     c.drawString(px + 10, c_y - 11, "FOCUS BUSNAGO (NOSTRA SQUADRA)")
 
-    # Dettaglio Ricezione (SOLO >= 5)
     c.setFont("Helvetica-Bold", 7.0)
     c.setFillColor(colors.HexColor("#2C3E50"))
     c.drawString(px + 10, c_y - 23, "RICEZIONE INDIVIDUALE (min. 5 ric):")
@@ -688,14 +679,13 @@ def generate_pdf(data, set_label="Gara"):
             pos_pct = ((st_r["#"] + st_r["+"]) / st_r["tot"]) * 100
             err_pct = (st_r["="] / st_r["tot"]) * 100
             rec_qual_list.append((num, st_r["tot"], pos_pct, err_pct))
-    rec_qual_list.sort(key=lambda x: x[2])  # In ordine crescente di positività
+    rec_qual_list.sort(key=lambda x: x[2])
 
     sub_y = c_y - 44
     if rec_qual_list:
-        for r in rec_qual_list[:4]:  # Mostra fino a 4 ricettori principali
+        for r in rec_qual_list[:4]:
             pname = data["home_players"].get(r[0], {}).get("name", "")[:9]
             c.setFont("Helvetica", 6.5)
-            # Evidenzia se ha molti errori
             if r[3] >= 15:
                 c.setFillColor(colors.HexColor("#C0392B"))
             else:
@@ -708,12 +698,10 @@ def generate_pdf(data, set_label="Gara"):
         c.drawString(px + 10, sub_y, "Nessun giocatore con >= 5 ricezioni")
         sub_y -= 10
 
-    # Separatore
     c.setStrokeColor(colors.HexColor("#EAEDED"))
     c.line(px + 10, sub_y + 2, px + pw - 12, sub_y + 2)
     sub_y -= 8
 
-    # Attacco e Momento NO
     h_att_list = []
     for num, st_a in data["home_attack"].items():
         if st_a["tot"] > 0:
@@ -761,16 +749,14 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = c_y - card_busnago_h - 5
 
-    # ====================================================
     # 5. CARD DECISIONI TATTICHE AVVERSARI
-    # ====================================================
     card_dec_h = 72
     c.setFillColor(colors.HexColor("#EBF5FB"))
     c.setStrokeColor(colors.HexColor("#AED6F1"))
     c.rect(px + 6, c_y - card_dec_h, pw - 12, card_dec_h, fill=1, stroke=1)
 
     c.setFillColor(colors.HexColor("#1B4F72"))
-    c.setFont("Helvetica-Bold", 7.5)
+    c.setFont("Helvetica-Bold", 7.8)
     c.drawString(px + 10, c_y - 10, "DECISIONI TATTICHE AVVERSARI")
 
     opp_rec_list = []
@@ -902,18 +888,38 @@ def generate_pdf(data, set_label="Gara"):
     return buf
 
 # ==========================================================
-# INTERFACCIA STREAMLIT
+# INTERFACCIA STREAMLIT (OTTIMIZZATA PER IPAD / BROWSER)
 # ==========================================================
 def main():
     st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
     st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-    st.write("Dossier Completo: Confronto Head-to-Head, Dettaglio Ricezione Busnago (>=5 ric), CP vs BP e Focus Attaccanti.")
+    st.write("Dossier Completo: Confronto Head-to-Head, Sfondo Bianco e Focus Giocatori.")
 
-    dvw_file = st.file_uploader("Trascina qui il file .dvw di Click&Scout:", type=["dvw"])
-    
-    if dvw_file:
-        text = dvw_file.getvalue().decode("utf-8", errors="ignore")
-        
+    metodo = st.radio(
+        "Seleziona modalità di inserimento scout:",
+        ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
+        horizontal=True
+    )
+
+    text = None
+    if metodo == "📁 Carica File Scout":
+        # Senza vincolo rigido type=[...] per evitare blocchi su iPadOS
+        uploaded_file = st.file_uploader(
+            "Seleziona il file scout (qualsiasi estensione .dvw o .txt):",
+            type=None
+        )
+        if uploaded_file:
+            text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+    else:
+        raw_text = st.text_area(
+            "Incolla qui il contenuto del file scout (.dvw / testo):",
+            height=200,
+            placeholder="Incolla qui le righe di testo dello scout..."
+        )
+        if raw_text.strip():
+            text = raw_text
+
+    if text:
         col_set, _ = st.columns([3, 3])
         with col_set:
             set_choice = st.selectbox(
