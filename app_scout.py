@@ -237,4 +237,194 @@ def generate_pdf(data, set_label="Gara"):
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
-    c.drawString(width - 230
+    c.drawString(width - 230, height - 22, "▲ Punto (#)")
+    c.setFillColor(colors.HexColor("#E74C3C"))
+    c.drawString(width - 165, height - 22, "▲ Errore/Murato (=, /)")
+    c.setFillColor(colors.HexColor("#2980B9"))
+    c.drawString(width - 75, height - 22, "▲ Gioco (+, -)")
+
+    positions = [1, 6, 5, 4, 3, 2]
+    coords = [
+        (20, height - 260),
+        (220, height - 260),
+        (420, height - 260),
+        (20, height - 495),
+        (220, height - 495),
+        (420, height - 495),
+    ]
+
+    bw, bh = 192, 225
+    cw, ch = 105, 130
+
+    for idx, p in enumerate(positions):
+        bx, by = coords[idx]
+        rot = data["rotations"][p]
+
+        c.setStrokeColor(colors.HexColor("#BDC3C7"))
+        c.setLineWidth(0.8)
+        c.rect(bx, by, bw, bh)
+
+        c.setFillColor(colors.HexColor("#2C3E50"))
+        c.rect(bx, by + bh - 16, bw, 16, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(bx + 6, by + bh - 12, f"FASE P{p} (P in Z{p}) - {rot['total_att']} Att")
+
+        cx, cy = bx + 6, by + 10
+        draw_pitch(c, cx, cy, cw, ch, rot)
+
+        dx = bx + cw + 10
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 7)
+        c.drawString(dx, by + bh - 30, "BASI C1/C2:")
+        c.setFont("Helvetica", 7)
+        c.drawString(dx, by + bh - 42, f"• K1: {rot['bases'].get('K1', 0)}")
+        c.drawString(dx, by + bh - 52, f"• KC: {rot['bases'].get('KC', 0)}")
+        c.drawString(dx, by + bh - 62, f"• K7: {rot['bases'].get('K7', 0)}")
+
+        c.setFont("Helvetica-Bold", 7)
+        c.drawString(dx, by + bh - 80, "BATTUTE RICEVUTE:")
+        c.setFont("Helvetica", 6.5)
+        if rot["serves"]:
+            sy = by + bh - 90
+            for s_str, cnt in sorted(rot["serves"].items(), key=lambda x: x[1], reverse=True)[:3]:
+                c.drawString(dx, sy, f"• {s_str} ({cnt})")
+                sy -= 9
+        else:
+            c.drawString(dx, by + bh - 90, "• Nessuna")
+
+    sx = 620
+    sy = height - 495
+    sw = width - sx - 15
+    sh = 460
+
+    c.setStrokeColor(colors.HexColor("#2C3E50"))
+    c.rect(sx, sy, sw, sh)
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.rect(sx, sy + sh - 18, sw, 18, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(sx + 8, sy + sh - 13, "ANALISI GIOCATORI AVVERSARI")
+
+    # Ricezione
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(sx + 8, sy + sh - 30, "RICEZIONE:")
+    rec_sorted = []
+    for num, st_r in data["reception"].items():
+        if st_r["tot"] > 0:
+            pos_pct = (st_r["#"] + st_r["+"]) / st_r["tot"] * 100
+            prf_pct = st_r["#"] / st_r["tot"] * 100
+            rec_sorted.append((num, st_r["tot"], pos_pct, prf_pct, st_r["="]))
+    rec_sorted.sort(key=lambda x: x[2])
+
+    c.setFont("Helvetica", 6.5)
+    c.drawString(sx + 8, sy + sh - 42, "#   Nome       Tot  Pos%  Prf%  Err")
+    c.line(sx + 8, sy + sh - 45, sx + sw - 8, sy + sh - 45)
+    ry = sy + sh - 55
+    for r in rec_sorted[:5]:
+        pname = data["players"].get(r[0], {}).get("name", "")[:9]
+        c.drawString(sx + 8, ry, f"#{r[0]} {pname:<10} {r[1]:<3} {r[2]:.0f}%   {r[3]:.0f}%   {r[4]}")
+        ry -= 10
+
+    # Attacco
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(sx + 8, ry - 10, "ATTACCO:")
+    att_sorted = []
+    for num, st_a in data["attack"].items():
+        if st_a["tot"] > 0:
+            eff = ((st_a["#"] - st_a["="] - st_a["/"]) / st_a["tot"]) * 100
+            pt_pct = st_a["#"] / st_a["tot"] * 100
+            att_sorted.append((num, st_a["tot"], st_a["#"], eff, pt_pct))
+    att_sorted.sort(key=lambda x: x[1], reverse=True)
+
+    c.setFont("Helvetica", 6.5)
+    c.drawString(sx + 8, ry - 22, "#   Nome       Tot  Pt   Eff%  Pt%")
+    c.line(sx + 8, ry - 25, sx + sw - 8, ry - 25)
+    ay = ry - 35
+    for a in att_sorted[:6]:
+        pname = data["players"].get(a[0], {}).get("name", "")[:9]
+        c.drawString(sx + 8, ay, f"#{a[0]} {pname:<10} {a[1]:<3} {a[2]:<3} {a[3]:.0f}%  {a[4]:.0f}%")
+        ay -= 10
+
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(sx + 8, ay - 10, "NOTE CHIAVE:")
+    c.setFont("Helvetica", 6.5)
+    if rec_sorted:
+        c.drawString(sx + 8, ay - 22, f"• Target Battuta: #{rec_sorted[0][0]} ({rec_sorted[0][2]:.0f}%)")
+    if att_sorted:
+        c.drawString(sx + 8, ay - 32, f"• Più Servito: #{att_sorted[0][0]} ({att_sorted[0][1]} att)")
+        eff_max = max(att_sorted, key=lambda x: x[3])
+        c.drawString(sx + 8, ay - 42, f"• Più Efficace: #{eff_max[0]} ({eff_max[3]:.0f}% eff)")
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf
+
+# ==========================================================
+# INTERFACCIA STREAMLIT
+# ==========================================================
+def main():
+    st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
+    st.title("🏐 Elaboratore Tattico Click&Scout")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("1. Piano Pre-Gara (PDF)")
+        pre_pdf = st.file_uploader("Carica lo studio preparato prima della gara:", type=["pdf"])
+    with col2:
+        st.subheader("2. File Scout (.dvw)")
+        dvw_file = st.file_uploader("Trascina qui il file .dvw di Click&Scout:", type=["dvw"])
+
+    if dvw_file:
+        text = dvw_file.getvalue().decode("utf-8", errors="ignore")
+
+        c_set, _ = st.columns([2, 4])
+        with c_set:
+            set_choice = st.selectbox(
+                "Seleziona il Set:",
+                ["Gara Completa", "Set 1", "Set 2", "Set 3", "Set 4", "Set 5"]
+            )
+
+        t_set = None
+        if set_choice != "Gara Completa":
+            match_s = re.search(r"\d+", set_choice)
+            if match_s:
+                t_set = int(match_s.group(0))
+
+        scout_data = parse_dvw(text, target_set=t_set)
+
+        if not scout_data:
+            st.error("Formato scout non valido.")
+            return
+
+        st.success(f"Caricato: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
+        live_pdf = generate_pdf(scout_data, set_label=set_choice)
+
+        if pre_pdf:
+            merger = PdfWriter()
+            r_pre = PdfReader(pre_pdf)
+            for page in r_pre.pages:
+                merger.add_page(page)
+            r_live = PdfReader(live_pdf)
+            for page in r_live.pages:
+                merger.add_page(page)
+            out = io.BytesIO()
+            merger.write(out)
+            out.seek(0)
+            btn_data = out
+            btn_txt = "📄 Scarica Dossier Completo (Pre-Gara + Dati Live)"
+        else:
+            btn_data = live_pdf
+            btn_txt = "📄 Scarica Scheda Tattica Grafica Live"
+
+        st.download_button(
+            label=btn_txt,
+            data=btn_data,
+            file_name=f"Studio_Gara_{set_choice.replace(' ', '_')}.pdf",
+            mime="application/pdf"
+        )
+
+if __name__ == "__main__":
+    main()
