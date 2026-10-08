@@ -449,7 +449,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.6, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF DELLE 2 PAGINE LIVE
+# GENERATORE PDF DELLE PAGINE LIVE
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
@@ -889,24 +889,44 @@ def generate_pdf(data, set_label="Gara"):
     return buf
 
 # ==========================================================
-# INTERFACCIA STREAMLIT (CON PDF PRE-GARA OPZIONALE)
+# INTERFACCIA STREAMLIT (MEMORIZZAZIONE AUTOMATICA PRE-GARA)
 # ==========================================================
 def main():
     st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
     st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-    st.write("Generazione Dossier Integrato: Studio Pre-Gara (Opzionale) + Analisi Live.")
+    st.write("Dossier Completo: Pre-Gara Memorizzato per tutta la partita + Analisi Live aggiornata ad ogni set.")
+
+    # Inizializza memoria per il PDF pre-gara
+    if "saved_pre_pdf_bytes" not in st.session_state:
+        st.session_state["saved_pre_pdf_bytes"] = None
+    if "saved_pre_pdf_name" not in st.session_state:
+        st.session_state["saved_pre_pdf_name"] = ""
 
     col_pre, col_scout = st.columns(2)
 
     with col_pre:
-        st.subheader("1. Studio Pre-Gara (Opzionale)")
-        pre_pdf = st.file_uploader(
-            "Carica il PDF preparato prima della gara (se presente):",
-            type=["pdf"]
-        )
+        st.subheader("1. Studio Pre-Gara (Carica 1 volta sola)")
+        
+        # Se già in memoria mostra messaggio di conferma
+        if st.session_state["saved_pre_pdf_bytes"] is not None:
+            st.success(f"✅ Pre-gara memorizzato in sessione: **{st.session_state['saved_pre_pdf_name']}**")
+            if st.button("🗑️ Rimuovi / Cambia Pre-Gara"):
+                st.session_state["saved_pre_pdf_bytes"] = None
+                st.session_state["saved_pre_pdf_name"] = ""
+                st.rerun()
+        else:
+            uploaded_pre = st.file_uploader(
+                "Carica qui il PDF del tuo studio pre-gara:",
+                type=["pdf"]
+            )
+            if uploaded_pre:
+                st.session_state["saved_pre_pdf_bytes"] = uploaded_pre.getvalue()
+                st.session_state["saved_pre_pdf_name"] = uploaded_pre.name
+                st.success(f"✅ Memorizzato per tutti i set: **{uploaded_pre.name}**")
+                st.rerun()
 
     with col_scout:
-        st.subheader("2. Dati Scout Click&Scout")
+        st.subheader("2. Dati Scout (Aggiorna fine set)")
         metodo = st.radio(
             "Modalità inserimento scout:",
             ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
@@ -916,14 +936,14 @@ def main():
         text = None
         if metodo == "📁 Carica File Scout":
             uploaded_file = st.file_uploader(
-                "Seleziona il file scout (qualsiasi estensione):",
+                "Seleziona il file scout aggiornato (estensione .dvw o .txt):",
                 type=None
             )
             if uploaded_file:
                 text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
         else:
             raw_text = st.text_area(
-                "Incolla qui il contenuto del file .dvw:",
+                "Incolla qui il contenuto aggiornato di Click&Scout:",
                 height=160,
                 placeholder="Incolla le righe di Click&Scout..."
             )
@@ -955,10 +975,10 @@ def main():
         # Genera le 2 pagine live
         live_pdf_buf = generate_pdf(scout_data, set_label=set_choice)
 
-        # Se è stato fornito un PDF pre-gara, uniscili
-        if pre_pdf:
+        # Se il pre-gara è memorizzato in sessione, uniscilo automaticamente!
+        if st.session_state["saved_pre_pdf_bytes"] is not None:
             merger = PdfWriter()
-            r_pre = PdfReader(pre_pdf)
+            r_pre = PdfReader(io.BytesIO(st.session_state["saved_pre_pdf_bytes"]))
             for page in r_pre.pages:
                 merger.add_page(page)
             r_live = PdfReader(live_pdf_buf)
@@ -968,11 +988,11 @@ def main():
             merger.write(out_buf)
             out_buf.seek(0)
             final_data = out_buf
-            btn_label = "📄 Scarica Dossier Completo (Pre-Gara + Analisi Live)"
+            btn_label = f"📄 Scarica Dossier Completo (Pre-Gara + Analisi {set_choice})"
             file_name_out = f"Dossier_Completo_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
         else:
             final_data = live_pdf_buf
-            btn_label = "📄 Scarica Scheda Tattica Grafica Live (PDF)"
+            btn_label = f"📄 Scarica Scheda Tattica Grafica ({set_choice})"
             file_name_out = f"Scheda_Live_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
 
         st.download_button(
