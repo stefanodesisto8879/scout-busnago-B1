@@ -3,6 +3,7 @@ import math
 import re
 from collections import defaultdict
 import streamlit as st
+from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -355,13 +356,13 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
             y2 = y + DEFENSE_TARGET_FULL[ez][1] * h
             
             if ev == "#":
-                col = colors.HexColor("#27AE60")
+                col = colors.HexColor("#27AE60")  # Punto
                 lw = 1.6
             elif ev in ["=", "/"]:
-                col = colors.HexColor("#E74C3C")
+                col = colors.HexColor("#E74C3C")  # Errore / Murato
                 lw = 1.6
             else:
-                col = colors.HexColor("#F39C12")
+                col = colors.HexColor("#F39C12")  # Palla in Gioco
                 lw = 1.1
             draw_trajectory(c, x1, y1, x2, y2, col, line_w=lw)
 
@@ -448,7 +449,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.6, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF
+# GENERATORE PDF DELLE 2 PAGINE LIVE
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
@@ -888,36 +889,46 @@ def generate_pdf(data, set_label="Gara"):
     return buf
 
 # ==========================================================
-# INTERFACCIA STREAMLIT (OTTIMIZZATA PER IPAD / BROWSER)
+# INTERFACCIA STREAMLIT (CON PDF PRE-GARA OPZIONALE)
 # ==========================================================
 def main():
     st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
     st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-    st.write("Dossier Completo: Confronto Head-to-Head, Sfondo Bianco e Focus Giocatori.")
+    st.write("Generazione Dossier Integrato: Studio Pre-Gara (Opzionale) + Analisi Live.")
 
-    metodo = st.radio(
-        "Seleziona modalità di inserimento scout:",
-        ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
-        horizontal=True
-    )
+    col_pre, col_scout = st.columns(2)
 
-    text = None
-    if metodo == "📁 Carica File Scout":
-        # Senza vincolo rigido type=[...] per evitare blocchi su iPadOS
-        uploaded_file = st.file_uploader(
-            "Seleziona il file scout (qualsiasi estensione .dvw o .txt):",
-            type=None
+    with col_pre:
+        st.subheader("1. Studio Pre-Gara (Opzionale)")
+        pre_pdf = st.file_uploader(
+            "Carica il PDF preparato prima della gara (se presente):",
+            type=["pdf"]
         )
-        if uploaded_file:
-            text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
-    else:
-        raw_text = st.text_area(
-            "Incolla qui il contenuto del file scout (.dvw / testo):",
-            height=200,
-            placeholder="Incolla qui le righe di testo dello scout..."
+
+    with col_scout:
+        st.subheader("2. Dati Scout Click&Scout")
+        metodo = st.radio(
+            "Modalità inserimento scout:",
+            ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
+            horizontal=True
         )
-        if raw_text.strip():
-            text = raw_text
+
+        text = None
+        if metodo == "📁 Carica File Scout":
+            uploaded_file = st.file_uploader(
+                "Seleziona il file scout (qualsiasi estensione):",
+                type=None
+            )
+            if uploaded_file:
+                text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+        else:
+            raw_text = st.text_area(
+                "Incolla qui il contenuto del file .dvw:",
+                height=160,
+                placeholder="Incolla le righe di Click&Scout..."
+            )
+            if raw_text.strip():
+                text = raw_text
 
     if text:
         col_set, _ = st.columns([3, 3])
@@ -936,17 +947,38 @@ def main():
         scout_data = parse_dvw(text, target_set=t_set)
         
         if not scout_data:
-            st.error("Formato file scout non valido o privo di dati.")
+            st.error("Formato scout non valido o privo di dati.")
             return
             
         st.success(f"Dati elaborati: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
         
-        pdf_buffer = generate_pdf(scout_data, set_label=set_choice)
-        
+        # Genera le 2 pagine live
+        live_pdf_buf = generate_pdf(scout_data, set_label=set_choice)
+
+        # Se è stato fornito un PDF pre-gara, uniscili
+        if pre_pdf:
+            merger = PdfWriter()
+            r_pre = PdfReader(pre_pdf)
+            for page in r_pre.pages:
+                merger.add_page(page)
+            r_live = PdfReader(live_pdf_buf)
+            for page in r_live.pages:
+                merger.add_page(page)
+            out_buf = io.BytesIO()
+            merger.write(out_buf)
+            out_buf.seek(0)
+            final_data = out_buf
+            btn_label = "📄 Scarica Dossier Completo (Pre-Gara + Analisi Live)"
+            file_name_out = f"Dossier_Completo_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+        else:
+            final_data = live_pdf_buf
+            btn_label = "📄 Scarica Scheda Tattica Grafica Live (PDF)"
+            file_name_out = f"Scheda_Live_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+
         st.download_button(
-            label="📄 Scarica Dossier Tattico Completo (PDF)",
-            data=pdf_buffer,
-            file_name=f"Dossier_Tattico_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf",
+            label=btn_label,
+            data=final_data,
+            file_name=file_name_out,
             mime="application/pdf"
         )
 
