@@ -356,13 +356,13 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
             y2 = y + DEFENSE_TARGET_FULL[ez][1] * h
             
             if ev == "#":
-                col = colors.HexColor("#27AE60")  # Punto
+                col = colors.HexColor("#27AE60")
                 lw = 1.6
             elif ev in ["=", "/"]:
-                col = colors.HexColor("#E74C3C")  # Errore / Murato
+                col = colors.HexColor("#E74C3C")
                 lw = 1.6
             else:
-                col = colors.HexColor("#F39C12")  # Palla in Gioco
+                col = colors.HexColor("#F39C12")
                 lw = 1.1
             draw_trajectory(c, x1, y1, x2, y2, col, line_w=lw)
 
@@ -449,7 +449,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.6, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF DELLE PAGINE LIVE
+# GENERATORE PDF (PAGINA 1 CON BOX METRICHE OTTIMIZZATO)
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
@@ -457,7 +457,7 @@ def generate_pdf(data, set_label="Gara"):
     width, height = landscape(A4)
     
     # ----------------------------------------------------
-    # PAGINA 1: ROTAZIONI DI SQUADRA (P1-P6) + PANNELLO METRICHE
+    # HEADER PAGINA 1
     # ----------------------------------------------------
     c.setFillColor(colors.HexColor("#1A252F"))
     c.rect(0, height - 34, width, 34, fill=1, stroke=0)
@@ -465,15 +465,15 @@ def generate_pdf(data, set_label="Gara"):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20, height - 20, f"STUDIO TATTICO LIVE: {data['teams']['opp']} vs {data['teams']['home']}")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Sottozone 1-9  |  Confronto Punti Diretti  |  Target & Punti Deboli")
+    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Campo con Sottozone 1-9  |  Analisi Live e Decisioni Tattiche")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
-    c.drawString(width - 240, height - 20, "●→ Punto (#)")
+    c.drawString(width - 240, height - 20, "• Punto (#)")
     c.setFillColor(colors.HexColor("#E74C3C"))
-    c.drawString(width - 175, height - 20, "●→ Errore/Murato (=, /)")
+    c.drawString(width - 180, height - 20, "• Errore/Murato (=, /)")
     c.setFillColor(colors.HexColor("#F39C12"))
-    c.drawString(width - 85, height - 20, "●→ In Gioco (+, -)")
+    c.drawString(width - 90, height - 20, "• In Gioco (+, -)")
 
     positions = [1, 6, 5, 4, 3, 2]
     coords = [
@@ -515,85 +515,94 @@ def generate_pdf(data, set_label="Gara"):
         c.drawString(dx, by + bh - 58, f"• K7: {rot['bases'].get('K7', 0)}")
 
     # ----------------------------------------------------
-    # PANNELLO DESTRO: METRICHE & FOCUS COMPLETO
+    # PANNELLO DESTRO METRICHE (DESIGN RINNOVATO SENZA EMOJI ROTTI)
     # ----------------------------------------------------
     px = 626
     py = height - 500
     pw = width - px - 15
     ph = 466
     
-    c.setFillColor(colors.HexColor("#F8F9F9"))
+    c.setFillColor(colors.HexColor("#F8F9FA"))
     c.rect(px, py, pw, ph, fill=1, stroke=0)
-    c.setStrokeColor(colors.HexColor("#D5D8DC"))
+    c.setStrokeColor(colors.HexColor("#CFD8DC"))
     c.setLineWidth(1)
     c.rect(px, py, pw, ph, fill=0, stroke=1)
 
-    c.setFillColor(colors.HexColor("#1A252F"))
-    c.rect(px, py + ph - 24, pw, 24, fill=1, stroke=0)
+    # Intestazione pannello
+    c.setFillColor(colors.HexColor("#263238"))
+    c.rect(px, py + ph - 22, pw, 22, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(px + 10, py + ph - 16, "📊 COMPARAZIONE SQUADRE & METRICHE")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(px + 10, py + ph - 15, "CONFRONTO SQUADRE & TARGET TATTICI")
 
-    c_y = py + ph - 28
+    c_y = py + ph - 26
 
-    # 1. CARD CONFRONTO PUNTI DIRETTI (Attacco, Ace, Muro)
-    card_pts_h = 64
+    # ====================================================
+    # 1. CONFRONTO PUNTI DIRETTI (SENZA SOVRAPPOSIZIONI)
+    # ====================================================
+    card_pts_h = 68
     c.setFillColor(colors.white)
-    c.setStrokeColor(colors.HexColor("#D5D8DC"))
+    c.setStrokeColor(colors.HexColor("#CFD8DC"))
     c.rect(px + 6, c_y - card_pts_h, pw - 12, card_pts_h, fill=1, stroke=1)
 
-    c.setFillColor(colors.HexColor("#2C3E50"))
-    c.setFont("Helvetica-Bold", 7.5)
-    c.drawString(px + 10, c_y - 10, "CONFRONTO PUNTI DIRETTI")
+    # Titolo a sinistra
+    c.setFillColor(colors.HexColor("#263238"))
+    c.setFont("Helvetica-Bold", 7.2)
+    c.drawString(px + 10, c_y - 12, "PUNTI DIRETTI")
 
-    c.setFont("Helvetica-Bold", 6.8)
+    # Legenda ben distanziata a destra
     c.setFillColor(colors.HexColor("#1B4F72"))
-    c.drawString(px + pw - 95, c_y - 10, "■ Busnago")
-    c.setFillColor(colors.HexColor("#BA4A00"))
-    c.drawString(px + pw - 48, c_y - 10, "■ Avv")
+    c.circle(px + pw - 90, c_y - 10, 3, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 6.8)
+    c.drawString(px + pw - 84, c_y - 12, "Busnago")
+
+    c.setFillColor(colors.HexColor("#D35400"))
+    c.circle(px + pw - 42, c_y - 10, 3, fill=1, stroke=0)
+    c.drawString(px + pw - 36, c_y - 12, "Avv")
 
     sp = data["skill_points"]
     h_att_pts, o_att_pts = sp["home"]["attack"], sp["opp"]["attack"]
     h_ace_pts, o_ace_pts = sp["home"]["serve"], sp["opp"]["serve"]
     h_blk_pts, o_blk_pts = sp["home"]["block"], sp["opp"]["block"]
 
-    def draw_h2h_bar(y_pos, label, val_h, val_o):
-        c.setFont("Helvetica-Bold", 6.6)
-        c.setFillColor(colors.HexColor("#34495E"))
-        c.drawString(px + 10, y_pos + 1, f"{label}:")
+    def draw_skill_row(y_pos, label, val_h, val_o):
+        c.setFont("Helvetica-Bold", 6.8)
+        c.setFillColor(colors.HexColor("#455A64"))
+        c.drawString(px + 10, y_pos + 1, label)
         
         c.setFillColor(colors.HexColor("#1B4F72"))
-        c.drawString(px + 54, y_pos + 1, str(val_h))
-        c.setFillColor(colors.HexColor("#7F8C8D"))
-        c.drawString(px + 66, y_pos + 1, "vs")
-        c.setFillColor(colors.HexColor("#BA4A00"))
-        c.drawString(px + 80, y_pos + 1, str(val_o))
+        c.drawString(px + 52, y_pos + 1, f"{val_h:>2}")
+        c.setFillColor(colors.HexColor("#90A4AE"))
+        c.drawString(px + 64, y_pos + 1, "vs")
+        c.setFillColor(colors.HexColor("#D35400"))
+        c.drawString(px + 76, y_pos + 1, f"{val_o:<2}")
 
         max_v = max(1, val_h + val_o)
-        bar_start_x = px + 95
-        bar_avail_w = pw - 110
+        b_x = px + 92
+        b_w = pw - 106
+        w_h = (val_h / max_v) * b_w
+        w_o = (val_o / max_v) * b_w
         
-        w_h = (val_h / max_v) * bar_avail_w
         c.setFillColor(colors.HexColor("#2980B9"))
-        c.rect(bar_start_x, y_pos, max(2, w_h), 5.5, fill=1, stroke=0)
-        
-        w_o = (val_o / max_v) * bar_avail_w
+        c.rect(b_x, y_pos, max(2, w_h), 5.5, fill=1, stroke=0)
         c.setFillColor(colors.HexColor("#E67E22"))
-        c.rect(bar_start_x + max(2, w_h) + 2, y_pos, max(2, w_o), 5.5, fill=1, stroke=0)
+        c.rect(b_x + max(2, w_h) + 1.5, y_pos, max(2, w_o), 5.5, fill=1, stroke=0)
 
-    draw_h2h_bar(c_y - 23, "Attacco", h_att_pts, o_att_pts)
-    draw_h2h_bar(c_y - 36, "Ace", h_ace_pts, o_ace_pts)
-    draw_h2h_bar(c_y - 49, "Muro", h_blk_pts, o_blk_pts)
+    draw_skill_row(c_y - 25, "Attacco", h_att_pts, o_att_pts)
+    draw_skill_row(c_y - 38, "Ace", h_ace_pts, o_ace_pts)
+    draw_skill_row(c_y - 51, "Muro", h_blk_pts, o_blk_pts)
 
     tot_h_pts = h_att_pts + h_ace_pts + h_blk_pts
     tot_o_pts = o_att_pts + o_ace_pts + o_blk_pts
-    c.setFont("Helvetica-Bold", 6.6)
-    c.setFillColor(colors.HexColor("#1B4F72") if tot_h_pts >= tot_o_pts else colors.HexColor("#BA4A00"))
-    c.drawString(px + 10, c_y - 60, f"Totale Punti Diretti:  Busnago {tot_h_pts}  -  Avversario {tot_o_pts}")
+    c.setFont("Helvetica-Bold", 6.8)
+    c.setFillColor(colors.HexColor("#1B4F72") if tot_h_pts >= tot_o_pts else colors.HexColor("#D35400"))
+    c.drawString(px + 10, c_y - 63, f"Totale Vincenti: Busnago {tot_h_pts}  -  Avversario {tot_o_pts}")
 
     c_y = c_y - card_pts_h - 4
 
-    # 2. CARD ERRORI DIRETTI + FASI CP/BP
+    # ====================================================
+    # 2. ERRORI DIRETTI & RENDIMENTO FASI (COMPATTO & PULITO)
+    # ====================================================
     card_err_h = 42
     c.setFillColor(colors.HexColor("#FDEDEC"))
     c.setStrokeColor(colors.HexColor("#F5B7B1"))
@@ -605,15 +614,15 @@ def generate_pdf(data, set_label="Gara"):
     
     c.setFillColor(colors.HexColor("#C0392B"))
     c.setFont("Helvetica-Bold", 7.5)
-    c.drawString(px + 10, c_y - 10, "ERRORI DIRETTI BUSNAGO")
+    c.drawString(px + 10, c_y - 11, "ERRORI DIRETTI BUSNAGO")
     
+    # Badge circolare numero errori
     badge_x = px + pw - 22
-    badge_y = c_y - 12
-    c.setFillColor(colors.HexColor("#C0392B"))
-    c.circle(badge_x, badge_y, 8.5, fill=1, stroke=0)
+    badge_y = c_y - 13
+    c.circle(badge_x, badge_y, 9, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 7.5)
-    c.drawCentredString(badge_x, badge_y - 2.6, str(err_tot))
+    c.setFont("Helvetica-Bold", 8)
+    c.drawCentredString(badge_x, badge_y - 2.8, str(err_tot))
 
     ps = data["phase_stats"]
     h_cp = (ps["home"]["cp_kill"] / ps["home"]["cp_tot"] * 100) if ps["home"]["cp_tot"] > 0 else 0
@@ -622,13 +631,15 @@ def generate_pdf(data, set_label="Gara"):
     o_bp = (ps["opp"]["bp_kill"] / ps["opp"]["bp_tot"] * 100) if ps["opp"]["bp_tot"] > 0 else 0
 
     c.setFillColor(colors.HexColor("#78281F"))
-    c.setFont("Helvetica", 6.6)
-    c.drawString(px + 10, c_y - 22, f"• Battuta: {err_srv} err  |  Attacco: {err_att} out/murati")
-    c.drawString(px + 10, c_y - 33, f"• CP Attacco: Bus {h_cp:.0f}% vs Avv {o_cp:.0f}%  |  BP: Bus {h_bp:.0f}% vs Avv {o_bp:.0f}%")
+    c.setFont("Helvetica", 6.8)
+    c.drawString(px + 10, c_y - 23, f"• Battuta: {err_srv} err  |  Attacco: {err_att} out o murati")
+    c.drawString(px + 10, c_y - 34, f"• CP: Bus {h_cp:.0f}% vs Avv {o_cp:.0f}%  |  BP: Bus {h_bp:.0f}% vs Avv {o_bp:.0f}%")
 
     c_y = c_y - card_err_h - 4
 
-    # 3. CARD FOCUS BUSNAGO (NOSTRA SQUADRA)
+    # ====================================================
+    # 3. FOCUS BUSNAGO (BADGE COLORATI, ZERO EMOJI ROTTE)
+    # ====================================================
     card_busnago_h = 114
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#1B4F72"))
@@ -642,13 +653,13 @@ def generate_pdf(data, set_label="Gara"):
 
     c.setFont("Helvetica-Bold", 6.8)
     c.setFillColor(colors.HexColor("#2C3E50"))
-    c.drawString(px + 10, c_y - 25, "RICEZIONE INDIVIDUALE (min. 5 ric):")
+    c.drawString(px + 10, c_y - 24, "RICEZIONE INDIVIDUALE (min. 5 ric):")
 
     c.setFont("Helvetica-Bold", 6.2)
     c.setFillColor(colors.HexColor("#7F8C8D"))
-    c.drawString(px + 10, c_y - 34, "#  Nome         Tot    #+ %     Err %")
+    c.drawString(px + 10, c_y - 33, "#  Nome         Tot    #+ %     Err %")
     c.setStrokeColor(colors.HexColor("#BDC3C7"))
-    c.line(px + 10, c_y - 36, px + pw - 12, c_y - 36)
+    c.line(px + 10, c_y - 35, px + pw - 12, c_y - 35)
 
     rec_qual_list = []
     for num, st_r in data["home_reception"].items():
@@ -658,12 +669,12 @@ def generate_pdf(data, set_label="Gara"):
             rec_qual_list.append((num, st_r["tot"], pos_pct, err_pct))
     rec_qual_list.sort(key=lambda x: x[2])
 
-    sub_y = c_y - 45
+    sub_y = c_y - 44
     if rec_qual_list:
         for r in rec_qual_list[:3]:
             pname = data["home_players"].get(r[0], {}).get("name", "")[:9]
             c.setFont("Helvetica", 6.5)
-            c.setFillColor(colors.HexColor("#C0392B") if r[3] >= 15 else colors.black)
+            c.setFillColor(colors.HexColor("#C0392B") if r[3] >= 15 else colors.HexColor("#2C3E50"))
             c.drawString(px + 10, sub_y, f"#{r[0]} {pname:<10} {r[1]:<4} {r[2]:.0f}%     {r[3]:.0f}%")
             sub_y -= 9.5
     else:
@@ -672,9 +683,9 @@ def generate_pdf(data, set_label="Gara"):
         c.drawString(px + 10, sub_y, "Nessun giocatore con >= 5 ricezioni")
         sub_y -= 9.5
 
-    c.setStrokeColor(colors.HexColor("#EAEDED"))
+    c.setStrokeColor(colors.HexColor("#ECEFF1"))
     c.line(px + 10, sub_y + 2, px + pw - 12, sub_y + 2)
-    sub_y -= 7
+    sub_y -= 6
 
     h_att_list = []
     for num, st_a in data["home_attack"].items():
@@ -699,43 +710,54 @@ def generate_pdf(data, set_label="Gara"):
         sorted_impact = sorted(player_impact.items(), key=lambda x: (x[1]["pts"] - x[1]["err"]))
         worst_perf_player = sorted_impact[0]
 
+    # Pillole / Bullet grafici nativi
+    def draw_bullet(by, color):
+        c.setFillColor(color)
+        c.circle(px + 13, by + 2.5, 2.3, fill=1, stroke=0)
+
     c.setFont("Helvetica", 6.8)
-    c.setFillColor(colors.black)
     if top_vol_h:
+        draw_bullet(sub_y, colors.HexColor("#D35400"))
         p_name = data["home_players"].get(top_vol_h[0], {}).get("name", "")[:9]
-        c.drawString(px + 10, sub_y, f"🔥 Più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
+        c.setFillColor(colors.black)
+        c.drawString(px + 19, sub_y, f"Più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
         sub_y -= 9.5
     
     if top_eff_h:
+        draw_bullet(sub_y, colors.HexColor("#27AE60"))
         p_name = data["home_players"].get(top_eff_h[0], {}).get("name", "")[:9]
-        c.drawString(px + 10, sub_y, f"⚡ Più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
+        c.setFillColor(colors.black)
+        c.drawString(px + 19, sub_y, f"Più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
         sub_y -= 9.5
 
     if worst_perf_player and (worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]) < 0:
+        draw_bullet(sub_y, colors.HexColor("#C0392B"))
         wp_num = worst_perf_player[0]
         wp_name = data["home_players"].get(wp_num, {}).get("name", "")[:9]
         saldo = worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]
         c.setFillColor(colors.HexColor("#C0392B"))
         c.setFont("Helvetica-Bold", 6.8)
-        c.drawString(px + 10, sub_y, f"⚠️ Momento NO: #{wp_num} {wp_name} (Saldo: {saldo})")
+        c.drawString(px + 19, sub_y, f"Momento NO: #{wp_num} {wp_name} (Saldo: {saldo})")
     else:
-        c.drawString(px + 10, sub_y, "• Rendimento squadra: Equilibrato")
+        draw_bullet(sub_y, colors.HexColor("#7F8C8D"))
+        c.setFillColor(colors.HexColor("#546E7A"))
+        c.drawString(px + 19, sub_y, "Rendimento squadra: Equilibrato")
 
     c_y = c_y - card_busnago_h - 4
 
     # ====================================================
-    # 4. CARD FOCUS AVVERSARI (RICEZIONE & ATTACCO TARGET)
+    # 4. FOCUS AVVERSARI (TARGET TATTICI AD ALTO CONTRASTO)
     # ====================================================
     card_opp_h = 104
     c.setFillColor(colors.white)
-    c.setStrokeColor(colors.HexColor("#BA4A00"))
+    c.setStrokeColor(colors.HexColor("#D35400"))
     c.rect(px + 6, c_y - card_opp_h, pw - 12, card_opp_h, fill=1, stroke=1)
 
-    c.setFillColor(colors.HexColor("#BA4A00"))
+    c.setFillColor(colors.HexColor("#D35400"))
     c.rect(px + 6, c_y - 15, pw - 12, 15, fill=1, stroke=0)
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 7.5)
-    c.drawString(px + 10, c_y - 11, "🎯 FOCUS AVVERSARI (DECISIONI TATTICHE)")
+    c.drawString(px + 10, c_y - 11, "TARGET AVVERSARI (DECISIONI TATTICHE)")
 
     opp_rec_qual = []
     for num, st_r in data["opp_reception"].items():
@@ -756,7 +778,7 @@ def generate_pdf(data, set_label="Gara"):
     opp_att_by_vol = sorted(opp_att_list, key=lambda x: x[1], reverse=True)
     top_vol_opp = opp_att_by_vol[0] if opp_att_by_vol else None
 
-    # ESCLUSIONE DEL PALLEGGIATORE DAL CALCOLO DEL MENO SERVITO
+    # Esclusione palleggiatore
     non_setters_att = []
     for item in opp_att_list:
         p_num = item[0]
@@ -775,53 +797,71 @@ def generate_pdf(data, set_label="Gara"):
 
     sub_opp_y = c_y - 25
     c.setFont("Helvetica-Bold", 6.8)
-    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.setFillColor(colors.HexColor("#263238"))
     c.drawString(px + 10, sub_opp_y, "RICEZIONE AVVERSARIA (min. 5 ric):")
-
-    sub_opp_y -= 10
-    c.setFont("Helvetica", 6.8)
-    if best_opp_rec:
-        p_name = data["opp_players"].get(best_opp_rec[0], {}).get("name", "")[:9]
-        c.setFillColor(colors.HexColor("#196F3D"))
-        c.drawString(px + 10, sub_opp_y, f"🛡️ Evita battuta (#+): #{best_opp_rec[0]} {p_name} ({best_opp_rec[2]:.0f}% #+)")
-    else:
-        c.setFillColor(colors.black)
-        c.drawString(px + 10, sub_opp_y, "🛡️ Evita battuta: Dati ric. insufficienti (<5)")
 
     sub_opp_y -= 10
     if worst_opp_rec:
         p_name = data["opp_players"].get(worst_opp_rec[0], {}).get("name", "")[:9]
+        # Badge Bersaglio
+        c.setFillColor(colors.HexColor("#FDEDEC"))
+        c.rect(px + 10, sub_opp_y - 2, pw - 20, 9.5, fill=1, stroke=0)
         c.setFillColor(colors.HexColor("#C0392B"))
-        c.drawString(px + 10, sub_opp_y, f"🎯 Bersaglio servizio (=/-): #{worst_opp_rec[0]} {p_name} ({worst_opp_rec[3]:.0f}% neg/err)")
+        c.circle(px + 15, sub_opp_y + 2.5, 2.5, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 6.6)
+        c.drawString(px + 21, sub_opp_y, f"BERSAGLIO SERVIZIO: #{worst_opp_rec[0]} {p_name} ({worst_opp_rec[3]:.0f}% neg/err)")
     else:
-        c.setFillColor(colors.black)
-        c.drawString(px + 10, sub_opp_y, "🎯 Bersaglio servizio: Dati ric. insufficienti (<5)")
+        c.setFont("Helvetica", 6.6)
+        c.setFillColor(colors.HexColor("#546E7A"))
+        c.drawString(px + 10, sub_opp_y, "• Bersaglio servizio: Dati ric. insufficienti (<5)")
+
+    sub_opp_y -= 10
+    if best_opp_rec:
+        p_name = data["opp_players"].get(best_opp_rec[0], {}).get("name", "")[:9]
+        c.setFillColor(colors.HexColor("#E8F8F5"))
+        c.rect(px + 10, sub_opp_y - 2, pw - 20, 9.5, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor("#196F3D"))
+        c.circle(px + 15, sub_opp_y + 2.5, 2.5, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 6.6)
+        c.drawString(px + 21, sub_opp_y, f"EVITA BATTUTA: #{best_opp_rec[0]} {p_name} ({best_opp_rec[2]:.0f}% #+)")
+    else:
+        c.setFont("Helvetica", 6.6)
+        c.setFillColor(colors.HexColor("#546E7A"))
+        c.drawString(px + 10, sub_opp_y, "• Evita battuta: Dati ric. insufficienti (<5)")
 
     sub_opp_y -= 11
-    c.setStrokeColor(colors.HexColor("#F5CBA7"))
+    c.setStrokeColor(colors.HexColor("#ECEFF1"))
     c.line(px + 10, sub_opp_y + 2, px + pw - 12, sub_opp_y + 2)
 
     sub_opp_y -= 7
     c.setFont("Helvetica-Bold", 6.8)
-    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.setFillColor(colors.HexColor("#263238"))
     c.drawString(px + 10, sub_opp_y, "ATTACCO AVVERSARIO:")
 
     sub_opp_y -= 10
     c.setFont("Helvetica", 6.8)
-    c.setFillColor(colors.black)
     if top_eff_opp:
+        c.setFillColor(colors.HexColor("#27AE60"))
+        c.circle(px + 13, sub_opp_y + 2.5, 2.3, fill=1, stroke=0)
         p_name = data["opp_players"].get(top_eff_opp[0], {}).get("name", "")[:9]
-        c.drawString(px + 10, sub_opp_y, f"⚡ Più efficace: #{top_eff_opp[0]} {p_name} ({top_eff_opp[3]:.0f}% Eff)")
+        c.setFillColor(colors.black)
+        c.drawString(px + 19, sub_opp_y, f"Più efficace: #{top_eff_opp[0]} {p_name} ({top_eff_opp[3]:.0f}% Eff)")
     
     sub_opp_y -= 10
     if top_vol_opp:
+        c.setFillColor(colors.HexColor("#D35400"))
+        c.circle(px + 13, sub_opp_y + 2.5, 2.3, fill=1, stroke=0)
         p_name = data["opp_players"].get(top_vol_opp[0], {}).get("name", "")[:9]
-        c.drawString(px + 10, sub_opp_y, f"🔥 Più servito: #{top_vol_opp[0]} {p_name} ({top_vol_opp[1]} palloni)")
+        c.setFillColor(colors.black)
+        c.drawString(px + 19, sub_opp_y, f"Più servito: #{top_vol_opp[0]} {p_name} ({top_vol_opp[1]} pal)")
         
     sub_opp_y -= 10
     if min_vol_opp and min_vol_opp[0] != (top_vol_opp[0] if top_vol_opp else None):
+        c.setFillColor(colors.HexColor("#2980B9"))
+        c.circle(px + 13, sub_opp_y + 2.5, 2.3, fill=1, stroke=0)
         p_name = data["opp_players"].get(min_vol_opp[0], {}).get("name", "")[:9]
-        c.drawString(px + 10, sub_opp_y, f"❄️ Meno servito: #{min_vol_opp[0]} {p_name} ({min_vol_opp[1]} palloni)")
+        c.setFillColor(colors.black)
+        c.drawString(px + 19, sub_opp_y, f"Meno servito (no P): #{min_vol_opp[0]} {p_name} ({min_vol_opp[1]} pal)")
 
     c.showPage()
 
@@ -838,11 +878,11 @@ def generate_pdf(data, set_label="Gara"):
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
-    c.drawString(width - 240, height - 20, "●→ Punto (#)")
+    c.drawString(width - 240, height - 20, "• Punto (#)")
     c.setFillColor(colors.HexColor("#E74C3C"))
-    c.drawString(width - 175, height - 20, "●→ Errore/Murato (=, /)")
+    c.drawString(width - 180, height - 20, "• Errore/Murato (=, /)")
     c.setFillColor(colors.HexColor("#F39C12"))
-    c.drawString(width - 85, height - 20, "●→ In Gioco (+, -)")
+    c.drawString(width - 90, height - 20, "• In Gioco (+, -)")
 
     f_coords = [
         (20, height - 262), (285, height - 262), (550, height - 262),
