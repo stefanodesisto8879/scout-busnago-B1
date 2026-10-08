@@ -141,7 +141,7 @@ def parse_dvw(file_text, target_set=None):
         p_rot = 1
         setter_num = "1"
         for num, pinfo in opp_players.items():
-            if pinfo.get("role") == "5" or "P" in pinfo.get("name", "") or num in ["01", "1"]:
+            if pinfo.get("role") == "5" or "P" in pinfo.get("name", "") or num == "01" or num == "1":
                 setter_num = str(int(num))
                 break
                 
@@ -504,3 +504,533 @@ def generate_pdf(data, set_label="Gara"):
         sx, sy = bx + cw + 10, by + 8
         sw, sh = bw - cw - 15, 80
         draw_serve_box_with_player(c, sx, sy, sw, sh, rot["serves_data"], data["opp_players"])
+        
+        dx = bx + cw + 10
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(dx, by + bh - 26, "BASI C1/C2:")
+        c.setFont("Helvetica", 7)
+        c.drawString(dx, by + bh - 38, f"• K1: {rot['bases'].get('K1', 0)}")
+        c.drawString(dx, by + bh - 48, f"• KC: {rot['bases'].get('KC', 0)}")
+        c.drawString(dx, by + bh - 58, f"• K7: {rot['bases'].get('K7', 0)}")
+
+    # ----------------------------------------------------
+    # PANNELLO DESTRO: METRICHE & FOCUS COMPLETO
+    # ----------------------------------------------------
+    px = 626
+    py = height - 500
+    pw = width - px - 15
+    ph = 466
+    
+    c.setFillColor(colors.HexColor("#F8F9F9"))
+    c.rect(px, py, pw, ph, fill=1, stroke=0)
+    c.setStrokeColor(colors.HexColor("#D5D8DC"))
+    c.setLineWidth(1)
+    c.rect(px, py, pw, ph, fill=0, stroke=1)
+
+    c.setFillColor(colors.HexColor("#1A252F"))
+    c.rect(px, py + ph - 24, pw, 24, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(px + 10, py + ph - 16, "📊 COMPARAZIONE SQUADRE & METRICHE")
+
+    c_y = py + ph - 28
+
+    # 1. CARD CONFRONTO PUNTI DIRETTI (Attacco, Ace, Muro)
+    card_pts_h = 64
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor("#D5D8DC"))
+    c.rect(px + 6, c_y - card_pts_h, pw - 12, card_pts_h, fill=1, stroke=1)
+
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(px + 10, c_y - 10, "CONFRONTO PUNTI DIRETTI")
+
+    c.setFont("Helvetica-Bold", 6.8)
+    c.setFillColor(colors.HexColor("#1B4F72"))
+    c.drawString(px + pw - 95, c_y - 10, "■ Busnago")
+    c.setFillColor(colors.HexColor("#BA4A00"))
+    c.drawString(px + pw - 48, c_y - 10, "■ Avv")
+
+    sp = data["skill_points"]
+    h_att_pts, o_att_pts = sp["home"]["attack"], sp["opp"]["attack"]
+    h_ace_pts, o_ace_pts = sp["home"]["serve"], sp["opp"]["serve"]
+    h_blk_pts, o_blk_pts = sp["home"]["block"], sp["opp"]["block"]
+
+    def draw_h2h_bar(y_pos, label, val_h, val_o):
+        c.setFont("Helvetica-Bold", 6.6)
+        c.setFillColor(colors.HexColor("#34495E"))
+        c.drawString(px + 10, y_pos + 1, f"{label}:")
+        
+        c.setFillColor(colors.HexColor("#1B4F72"))
+        c.drawString(px + 54, y_pos + 1, str(val_h))
+        c.setFillColor(colors.HexColor("#7F8C8D"))
+        c.drawString(px + 66, y_pos + 1, "vs")
+        c.setFillColor(colors.HexColor("#BA4A00"))
+        c.drawString(px + 80, y_pos + 1, str(val_o))
+
+        max_v = max(1, val_h + val_o)
+        bar_start_x = px + 95
+        bar_avail_w = pw - 110
+        
+        w_h = (val_h / max_v) * bar_avail_w
+        c.setFillColor(colors.HexColor("#2980B9"))
+        c.rect(bar_start_x, y_pos, max(2, w_h), 5.5, fill=1, stroke=0)
+        
+        w_o = (val_o / max_v) * bar_avail_w
+        c.setFillColor(colors.HexColor("#E67E22"))
+        c.rect(bar_start_x + max(2, w_h) + 2, y_pos, max(2, w_o), 5.5, fill=1, stroke=0)
+
+    draw_h2h_bar(c_y - 23, "Attacco", h_att_pts, o_att_pts)
+    draw_h2h_bar(c_y - 36, "Ace", h_ace_pts, o_ace_pts)
+    draw_h2h_bar(c_y - 49, "Muro", h_blk_pts, o_blk_pts)
+
+    tot_h_pts = h_att_pts + h_ace_pts + h_blk_pts
+    tot_o_pts = o_att_pts + o_ace_pts + o_blk_pts
+    c.setFont("Helvetica-Bold", 6.6)
+    c.setFillColor(colors.HexColor("#1B4F72") if tot_h_pts >= tot_o_pts else colors.HexColor("#BA4A00"))
+    c.drawString(px + 10, c_y - 60, f"Totale Punti Diretti:  Busnago {tot_h_pts}  -  Avversario {tot_o_pts}")
+
+    c_y = c_y - card_pts_h - 4
+
+    # 2. CARD ERRORI DIRETTI + FASI CP/BP
+    card_err_h = 42
+    c.setFillColor(colors.HexColor("#FDEDEC"))
+    c.setStrokeColor(colors.HexColor("#F5B7B1"))
+    c.rect(px + 6, c_y - card_err_h, pw - 12, card_err_h, fill=1, stroke=1)
+    
+    err_att = data["home_errors"]["attack"]
+    err_srv = data["home_errors"]["serve"]
+    err_tot = err_att + err_srv
+    
+    c.setFillColor(colors.HexColor("#C0392B"))
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(px + 10, c_y - 10, "ERRORI DIRETTI BUSNAGO")
+    
+    badge_x = px + pw - 22
+    badge_y = c_y - 12
+    c.setFillColor(colors.HexColor("#C0392B"))
+    c.circle(badge_x, badge_y, 8.5, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawCentredString(badge_x, badge_y - 2.6, str(err_tot))
+
+    ps = data["phase_stats"]
+    h_cp = (ps["home"]["cp_kill"] / ps["home"]["cp_tot"] * 100) if ps["home"]["cp_tot"] > 0 else 0
+    o_cp = (ps["opp"]["cp_kill"] / ps["opp"]["cp_tot"] * 100) if ps["opp"]["cp_tot"] > 0 else 0
+    h_bp = (ps["home"]["bp_kill"] / ps["home"]["bp_tot"] * 100) if ps["home"]["bp_tot"] > 0 else 0
+    o_bp = (ps["opp"]["bp_kill"] / ps["opp"]["bp_tot"] * 100) if ps["opp"]["bp_tot"] > 0 else 0
+
+    c.setFillColor(colors.HexColor("#78281F"))
+    c.setFont("Helvetica", 6.6)
+    c.drawString(px + 10, c_y - 22, f"• Battuta: {err_srv} err  |  Attacco: {err_att} out/murati")
+    c.drawString(px + 10, c_y - 33, f"• CP Attacco: Bus {h_cp:.0f}% vs Avv {o_cp:.0f}%  |  BP: Bus {h_bp:.0f}% vs Avv {o_bp:.0f}%")
+
+    c_y = c_y - card_err_h - 4
+
+    # 3. CARD FOCUS BUSNAGO (NOSTRA SQUADRA)
+    card_busnago_h = 114
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor("#1B4F72"))
+    c.rect(px + 6, c_y - card_busnago_h, pw - 12, card_busnago_h, fill=1, stroke=1)
+
+    c.setFillColor(colors.HexColor("#1B4F72"))
+    c.rect(px + 6, c_y - 15, pw - 12, 15, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(px + 10, c_y - 11, "FOCUS BUSNAGO (NOSTRA SQUADRA)")
+
+    c.setFont("Helvetica-Bold", 6.8)
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.drawString(px + 10, c_y - 25, "RICEZIONE INDIVIDUALE (min. 5 ric):")
+
+    c.setFont("Helvetica-Bold", 6.2)
+    c.setFillColor(colors.HexColor("#7F8C8D"))
+    c.drawString(px + 10, c_y - 34, "#  Nome         Tot    #+ %     Err %")
+    c.setStrokeColor(colors.HexColor("#BDC3C7"))
+    c.line(px + 10, c_y - 36, px + pw - 12, c_y - 36)
+
+    rec_qual_list = []
+    for num, st_r in data["home_reception"].items():
+        if st_r["tot"] >= 5:
+            pos_pct = ((st_r["#"] + st_r["+"]) / st_r["tot"]) * 100
+            err_pct = (st_r["="] / st_r["tot"]) * 100
+            rec_qual_list.append((num, st_r["tot"], pos_pct, err_pct))
+    rec_qual_list.sort(key=lambda x: x[2])
+
+    sub_y = c_y - 45
+    if rec_qual_list:
+        for r in rec_qual_list[:3]:
+            pname = data["home_players"].get(r[0], {}).get("name", "")[:9]
+            c.setFont("Helvetica", 6.5)
+            c.setFillColor(colors.HexColor("#C0392B") if r[3] >= 15 else colors.black)
+            c.drawString(px + 10, sub_y, f"#{r[0]} {pname:<10} {r[1]:<4} {r[2]:.0f}%     {r[3]:.0f}%")
+            sub_y -= 9.5
+    else:
+        c.setFont("Helvetica-Oblique", 6.5)
+        c.setFillColor(colors.HexColor("#7F8C8D"))
+        c.drawString(px + 10, sub_y, "Nessun giocatore con >= 5 ricezioni")
+        sub_y -= 9.5
+
+    c.setStrokeColor(colors.HexColor("#EAEDED"))
+    c.line(px + 10, sub_y + 2, px + pw - 12, sub_y + 2)
+    sub_y -= 7
+
+    h_att_list = []
+    for num, st_a in data["home_attack"].items():
+        if st_a["tot"] > 0:
+            eff = ((st_a["#"] - st_a["="] - st_a["/"]) / st_a["tot"]) * 100
+            h_att_list.append((num, st_a["tot"], st_a["#"], eff))
+    h_att_list.sort(key=lambda x: x[1], reverse=True)
+    top_vol_h = h_att_list[0] if h_att_list else None
+    
+    h_att_by_eff = sorted(h_att_list, key=lambda x: x[3], reverse=True)
+    top_eff_h = h_att_by_eff[0] if h_att_by_eff else None
+
+    player_impact = defaultdict(lambda: {"pts": 0, "err": 0})
+    for num, st_a in data["home_attack"].items():
+        player_impact[num]["pts"] += st_a["#"]
+        player_impact[num]["err"] += (st_a["="] + st_a["/"])
+    for num, st_r in data["home_reception"].items():
+        player_impact[num]["err"] += st_r["="]
+    
+    worst_perf_player = None
+    if player_impact:
+        sorted_impact = sorted(player_impact.items(), key=lambda x: (x[1]["pts"] - x[1]["err"]))
+        worst_perf_player = sorted_impact[0]
+
+    c.setFont("Helvetica", 6.8)
+    c.setFillColor(colors.black)
+    if top_vol_h:
+        p_name = data["home_players"].get(top_vol_h[0], {}).get("name", "")[:9]
+        c.drawString(px + 10, sub_y, f"🔥 Più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
+        sub_y -= 9.5
+    
+    if top_eff_h:
+        p_name = data["home_players"].get(top_eff_h[0], {}).get("name", "")[:9]
+        c.drawString(px + 10, sub_y, f"⚡ Più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
+        sub_y -= 9.5
+
+    if worst_perf_player and (worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]) < 0:
+        wp_num = worst_perf_player[0]
+        wp_name = data["home_players"].get(wp_num, {}).get("name", "")[:9]
+        saldo = worst_perf_player[1]["pts"] - worst_perf_player[1]["err"]
+        c.setFillColor(colors.HexColor("#C0392B"))
+        c.setFont("Helvetica-Bold", 6.8)
+        c.drawString(px + 10, sub_y, f"⚠️ Momento NO: #{wp_num} {wp_name} (Saldo: {saldo})")
+    else:
+        c.drawString(px + 10, sub_y, "• Rendimento squadra: Equilibrato")
+
+    c_y = c_y - card_busnago_h - 4
+
+    # ====================================================
+    # 4. CARD FOCUS AVVERSARI (RICEZIONE & ATTACCO TARGET)
+    # ====================================================
+    card_opp_h = 104
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor("#BA4A00"))
+    c.rect(px + 6, c_y - card_opp_h, pw - 12, card_opp_h, fill=1, stroke=1)
+
+    c.setFillColor(colors.HexColor("#BA4A00"))
+    c.rect(px + 6, c_y - 15, pw - 12, 15, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(px + 10, c_y - 11, "🎯 FOCUS AVVERSARI (DECISIONI TATTICHE)")
+
+    opp_rec_qual = []
+    for num, st_r in data["opp_reception"].items():
+        if st_r["tot"] >= 5:
+            eff_pos = ((st_r["#"] + st_r["+"]) / st_r["tot"]) * 100
+            debolezza_pct = ((st_r["="] + st_r["/"] + st_r["-"]) / st_r["tot"]) * 100
+            opp_rec_qual.append((num, st_r["tot"], eff_pos, debolezza_pct))
+
+    best_opp_rec = max(opp_rec_qual, key=lambda x: x[2]) if opp_rec_qual else None
+    worst_opp_rec = max(opp_rec_qual, key=lambda x: x[3]) if opp_rec_qual else None
+
+    opp_att_list = []
+    for num, st_a in data["opp_attack"].items():
+        if st_a["tot"] > 0:
+            eff = ((st_a["#"] - st_a["="] - st_a["/"]) / st_a["tot"]) * 100
+            opp_att_list.append((num, st_a["tot"], st_a["#"], eff))
+
+    opp_att_by_vol = sorted(opp_att_list, key=lambda x: x[1], reverse=True)
+    top_vol_opp = opp_att_by_vol[0] if opp_att_by_vol else None
+
+    # ESCLUSIONE DEL PALLEGGIATORE DAL CALCOLO DEL MENO SERVITO
+    non_setters_att = []
+    for item in opp_att_list:
+        p_num = item[0]
+        p_info = data["opp_players"].get(p_num, {})
+        p_role = str(p_info.get("role", "")).strip()
+        p_name = p_info.get("name", "").upper()
+        is_setter = (p_role == "5") or ("P" in p_name) or ("PAL" in p_name) or ("PALLEGGIATORE" in p_name)
+        if not is_setter:
+            non_setters_att.append(item)
+
+    non_setters_by_vol = sorted(non_setters_att, key=lambda x: x[1])
+    min_vol_opp = non_setters_by_vol[0] if non_setters_by_vol else None
+
+    opp_att_qual = [a for a in opp_att_list if a[1] >= 3]
+    top_eff_opp = max(opp_att_qual, key=lambda x: x[3]) if opp_att_qual else (opp_att_list[0] if opp_att_list else None)
+
+    sub_opp_y = c_y - 25
+    c.setFont("Helvetica-Bold", 6.8)
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.drawString(px + 10, sub_opp_y, "RICEZIONE AVVERSARIA (min. 5 ric):")
+
+    sub_opp_y -= 10
+    c.setFont("Helvetica", 6.8)
+    if best_opp_rec:
+        p_name = data["opp_players"].get(best_opp_rec[0], {}).get("name", "")[:9]
+        c.setFillColor(colors.HexColor("#196F3D"))
+        c.drawString(px + 10, sub_opp_y, f"🛡️ Evita battuta (#+): #{best_opp_rec[0]} {p_name} ({best_opp_rec[2]:.0f}% #+)")
+    else:
+        c.setFillColor(colors.black)
+        c.drawString(px + 10, sub_opp_y, "🛡️ Evita battuta: Dati ric. insufficienti (<5)")
+
+    sub_opp_y -= 10
+    if worst_opp_rec:
+        p_name = data["opp_players"].get(worst_opp_rec[0], {}).get("name", "")[:9]
+        c.setFillColor(colors.HexColor("#C0392B"))
+        c.drawString(px + 10, sub_opp_y, f"🎯 Bersaglio servizio (=/-): #{worst_opp_rec[0]} {p_name} ({worst_opp_rec[3]:.0f}% neg/err)")
+    else:
+        c.setFillColor(colors.black)
+        c.drawString(px + 10, sub_opp_y, "🎯 Bersaglio servizio: Dati ric. insufficienti (<5)")
+
+    sub_opp_y -= 11
+    c.setStrokeColor(colors.HexColor("#F5CBA7"))
+    c.line(px + 10, sub_opp_y + 2, px + pw - 12, sub_opp_y + 2)
+
+    sub_opp_y -= 7
+    c.setFont("Helvetica-Bold", 6.8)
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.drawString(px + 10, sub_opp_y, "ATTACCO AVVERSARIO:")
+
+    sub_opp_y -= 10
+    c.setFont("Helvetica", 6.8)
+    c.setFillColor(colors.black)
+    if top_eff_opp:
+        p_name = data["opp_players"].get(top_eff_opp[0], {}).get("name", "")[:9]
+        c.drawString(px + 10, sub_opp_y, f"⚡ Più efficace: #{top_eff_opp[0]} {p_name} ({top_eff_opp[3]:.0f}% Eff)")
+    
+    sub_opp_y -= 10
+    if top_vol_opp:
+        p_name = data["opp_players"].get(top_vol_opp[0], {}).get("name", "")[:9]
+        c.drawString(px + 10, sub_opp_y, f"🔥 Più servito: #{top_vol_opp[0]} {p_name} ({top_vol_opp[1]} palloni)")
+        
+    sub_opp_y -= 10
+    if min_vol_opp and min_vol_opp[0] != (top_vol_opp[0] if top_vol_opp else None):
+        p_name = data["opp_players"].get(min_vol_opp[0], {}).get("name", "")[:9]
+        c.drawString(px + 10, sub_opp_y, f"❄️ Meno servito: #{min_vol_opp[0]} {p_name} ({min_vol_opp[1]} palloni)")
+
+    c.showPage()
+
+    # ----------------------------------------------------
+    # PAGINA 2: FOCUS PREFERENZE SINGOLI ATTACCANTI
+    # ----------------------------------------------------
+    c.setFillColor(colors.HexColor("#1A252F"))
+    c.rect(0, height - 34, width, 34, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20, height - 20, f"FOCUS PREFERENZE ATTACCO INDIVIDUALI: {data['teams']['opp']}")
+    c.setFont("Helvetica", 8)
+    c.drawString(20, height - 30, f"Campi a Sfondo Bianco  |  Traiettorie: Verde Punto, Rosso Errore, Giallo in Gioco  |  {set_label}")
+
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#27AE60"))
+    c.drawString(width - 240, height - 20, "●→ Punto (#)")
+    c.setFillColor(colors.HexColor("#E74C3C"))
+    c.drawString(width - 175, height - 20, "●→ Errore/Murato (=, /)")
+    c.setFillColor(colors.HexColor("#F39C12"))
+    c.drawString(width - 85, height - 20, "●→ In Gioco (+, -)")
+
+    f_coords = [
+        (20, height - 262), (285, height - 262), (550, height - 262),
+        (20, height - 500), (285, height - 500), (550, height - 500)
+    ]
+    fb_w, fb_h = 250, 228
+    fc_w, fc_h = 95, 190
+
+    top_attackers = opp_att_by_vol[:6]
+
+    for idx, att_info in enumerate(top_attackers):
+        p_num = att_info[0]
+        p_tot, p_pts, p_eff = att_info[1], att_info[2], att_info[3]
+        p_pct = (p_pts / p_tot * 100) if p_tot > 0 else 0
+        p_name = data["opp_players"].get(p_num, {}).get("name", f"Giocatore #{p_num}")
+        
+        fx, fy = f_coords[idx]
+        
+        c.setStrokeColor(colors.HexColor("#BDC3C7"))
+        c.setLineWidth(0.8)
+        c.rect(fx, fy, fb_w, fb_h)
+        
+        c.setFillColor(colors.HexColor("#2C3E50"))
+        c.rect(fx, fy + fb_h - 18, fb_w, 18, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(fx + 6, fy + fb_h - 13, f"#{p_num} {p_name.upper()} ({p_tot} Palloni)")
+        
+        p_attacks = data["opp_attack"][p_num]["attacks"]
+        draw_full_pitch(c, fx + 8, fy + 10, fc_w, fc_h, p_attacks)
+        
+        rx = fx + fc_w + 16
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(rx, fy + fb_h - 30, "STATISTICHE:")
+        c.setFont("Helvetica", 7)
+        c.drawString(rx, fy + fb_h - 42, f"• Vincenti: {p_pts} ({p_pct:.0f}%)")
+        c.drawString(rx, fy + fb_h - 54, f"• Efficienza: {p_eff:.0f}%")
+        
+        z_start_cnt = defaultdict(int)
+        z_end_cnt = defaultdict(int)
+        for _, sz, ez, _ in p_attacks:
+            if sz: z_start_cnt[sz] += 1
+            if ez: z_end_cnt[ez] += 1
+            
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(rx, fy + fb_h - 72, "PREFERENZE:")
+        c.setFont("Helvetica", 7)
+        if z_start_cnt:
+            top_start = max(z_start_cnt, key=z_start_cnt.get)
+            if top_start in ["2", "3", "4"]:
+                label_s = f"Posto {top_start}"
+            else:
+                label_s = f"Zona {top_start} (2° Linea)"
+            c.drawString(rx, fy + fb_h - 84, f"• Parte da: {label_s}")
+            
+        if z_end_cnt:
+            top_dest = max(z_end_cnt, key=z_end_cnt.get)
+            c.drawString(rx, fy + fb_h - 96, f"• Chiude in: Zona {top_dest}")
+            
+        c.setFont("Helvetica-Bold", 7)
+        c.setFillColor(colors.HexColor("#C0392B"))
+        
+        if z_start_cnt.get("4", 0) >= z_start_cnt.get("2", 0):
+            par = z_end_cnt.get("1", 0) + z_end_cnt.get("7", 0)
+            diag = z_end_cnt.get("5", 0) + z_end_cnt.get("9", 0)
+        else:
+            par = z_end_cnt.get("5", 0) + z_end_cnt.get("9", 0)
+            diag = z_end_cnt.get("1", 0) + z_end_cnt.get("7", 0)
+            
+        if diag > par: trend = "Preferisce Diagonale"
+        elif par > diag: trend = "Preferisce Parallela"
+        else: trend = "Distribuzione Mista"
+        c.drawString(rx, fy + fb_h - 114, f"• {trend}")
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf
+
+# ==========================================================
+# INTERFACCIA STREAMLIT
+# ==========================================================
+def main():
+    st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
+    st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
+    st.write("Dossier Completo: Pre-Gara Memorizzato + Analisi Live con Target Ricezione e Attacco.")
+
+    if "saved_pre_pdf_bytes" not in st.session_state:
+        st.session_state["saved_pre_pdf_bytes"] = None
+    if "saved_pre_pdf_name" not in st.session_state:
+        st.session_state["saved_pre_pdf_name"] = ""
+
+    col_pre, col_scout = st.columns(2)
+
+    with col_pre:
+        st.subheader("1. Studio Pre-Gara (Carica 1 volta sola)")
+        if st.session_state["saved_pre_pdf_bytes"] is not None:
+            st.success(f"✅ Pre-gara memorizzato in sessione: **{st.session_state['saved_pre_pdf_name']}**")
+            if st.button("🗑️ Rimuovi / Cambia Pre-Gara"):
+                st.session_state["saved_pre_pdf_bytes"] = None
+                st.session_state["saved_pre_pdf_name"] = ""
+                st.rerun()
+        else:
+            uploaded_pre = st.file_uploader(
+                "Carica qui il PDF del tuo studio pre-gara:",
+                type=["pdf"]
+            )
+            if uploaded_pre:
+                st.session_state["saved_pre_pdf_bytes"] = uploaded_pre.getvalue()
+                st.session_state["saved_pre_pdf_name"] = uploaded_pre.name
+                st.success(f"✅ Memorizzato per tutti i set: **{uploaded_pre.name}**")
+                st.rerun()
+
+    with col_scout:
+        st.subheader("2. Dati Scout (Aggiorna fine set)")
+        metodo = st.radio(
+            "Modalità inserimento scout:",
+            ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
+            horizontal=True
+        )
+
+        text = None
+        if metodo == "📁 Carica File Scout":
+            uploaded_file = st.file_uploader(
+                "Seleziona il file scout aggiornato (estensione .dvw o .txt):",
+                type=None
+            )
+            if uploaded_file:
+                text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+        else:
+            raw_text = st.text_area(
+                "Incolla qui il contenuto aggiornato di Click&Scout:",
+                height=160,
+                placeholder="Incolla le righe di Click&Scout..."
+            )
+            if raw_text.strip():
+                text = raw_text
+
+    if text:
+        col_set, _ = st.columns([3, 3])
+        with col_set:
+            set_choice = st.selectbox(
+                "Seleziona il Set da analizzare:",
+                ["Gara Completa", "Set 1", "Set 2", "Set 3", "Set 4", "Set 5"]
+            )
+            
+        t_set = None
+        if set_choice != "Gara Completa":
+            match_s = re.search(r"\d+", set_choice)
+            if match_s:
+                t_set = int(match_s.group(0))
+
+        scout_data = parse_dvw(text, target_set=t_set)
+        
+        if not scout_data:
+            st.error("Formato scout non valido o privo di dati.")
+            return
+            
+        st.success(f"Dati elaborati: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
+        
+        live_pdf_buf = generate_pdf(scout_data, set_label=set_choice)
+
+        if st.session_state["saved_pre_pdf_bytes"] is not None:
+            merger = PdfWriter()
+            r_pre = PdfReader(io.BytesIO(st.session_state["saved_pre_pdf_bytes"]))
+            for page in r_pre.pages:
+                merger.add_page(page)
+            r_live = PdfReader(live_pdf_buf)
+            for page in r_live.pages:
+                merger.add_page(page)
+            out_buf = io.BytesIO()
+            merger.write(out_buf)
+            out_buf.seek(0)
+            final_data = out_buf
+            btn_label = f"📄 Scarica Dossier Completo (Pre-Gara + Analisi {set_choice})"
+            file_name_out = f"Dossier_Completo_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+        else:
+            final_data = live_pdf_buf
+            btn_label = f"📄 Scarica Scheda Tattica Grafica ({set_choice})"
+            file_name_out = f"Scheda_Live_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+
+        st.download_button(
+            label=btn_label,
+            data=final_data,
+            file_name=file_name_out,
+            mime="application/pdf"
+        )
+
+if __name__ == "__main__":
+    main()
