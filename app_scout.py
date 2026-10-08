@@ -504,4 +504,3 @@ def generate_pdf(data, set_label="Gara"):
         sx, sy = bx + cw + 10, by + 8
         sw, sh = bw - cw - 15, 80
         draw_serve_box_with_player(c, sx, sy, sw, sh, rot["serves_data"], data["opp_players"])
-        
