@@ -8,16 +8,13 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
-# ==========================================================
-# COORDINATE PRECISE CAMPO PALLAVOLO
-# Rete in alto (y=1.0), Fondo campo in basso (y=0.0)
-# ==========================================================
+# Coordinate standard (Rete in alto y=1.0, Fondo campo in basso y=0.0)
 ATTACK_ORIGIN = {
-    "4": (0.18, 0.88),  # Posto 4 (Banda)
-    "3": (0.50, 0.88),  # Posto 3 (Centro)
-    "2": (0.82, 0.88),  # Posto 2 (Opposto / Fast)
-    "8": (0.50, 0.55),  # Pipe (Seconda linea)
-    "6": (0.50, 0.55),  
+    "4": (0.18, 0.88),
+    "3": (0.50, 0.88),
+    "2": (0.82, 0.88),
+    "8": (0.50, 0.55),
+    "6": (0.50, 0.55),
 }
 
 DEFENSE_TARGET = {
@@ -26,12 +23,9 @@ DEFENSE_TARGET = {
     "2": (0.80, 0.70), "3": (0.50, 0.70), "4": (0.20, 0.70),
 }
 
-# ==========================================================
-# PARSER CLICK&SCOUT (.dvw)
-# ==========================================================
 def parse_dvw(file_text, target_set=None):
     lines = file_text.splitlines()
-    teams = {"home": "Home", "opp": "Opponent"}
+    teams = {"home": "Casa", "opp": "Ospiti"}
     opp_players = {}
     
     idx = 0
@@ -115,13 +109,13 @@ def parse_dvw(file_text, target_set=None):
         start_z = traj_match.group(1) if traj_match else ""
         end_z = traj_match.group(2) if traj_match else ""
 
-        # 1. RICEZIONE
+        # Ricezione
         if skill == "R":
             reception_stats[player]["tot"] += 1
             if eval_char in reception_stats[player]:
                 reception_stats[player][eval_char] += 1
                 
-        # 2. ATTACCO
+        # Attacco
         elif skill == "A":
             attack_stats[player]["tot"] += 1
             if eval_char in attack_stats[player]:
@@ -141,7 +135,7 @@ def parse_dvw(file_text, target_set=None):
                     else:
                         rotations[p_rot]["bases"]["KC"] += 1
 
-        # 3. BATTUTA
+        # Battuta
         elif skill == "S":
             if start_z and end_z:
                 rotations[p_rot]["serves"][f"#{player} Z{start_z}»Z{end_z}"] += 1
@@ -154,17 +148,12 @@ def parse_dvw(file_text, target_set=None):
         "attack": attack_stats
     }
 
-
-# ==========================================================
-# MOTORE GRAFICO: CAMPO CON PERCENTUALI E FRECCE D'ATTACCO
-# ==========================================================
 def draw_arrow_head(c, x1, y1, x2, y2, color, width=1.5):
     c.setStrokeColor(color)
     c.setFillColor(color)
     c.setLineWidth(width)
     c.line(x1, y1, x2, y2)
     
-    # Calcolo punta triangolare orientata
     angle = math.atan2(y2 - y1, x2 - x1)
     arrow_len = 6
     arrow_w = math.pi / 6
@@ -181,30 +170,22 @@ def draw_arrow_head(c, x1, y1, x2, y2, color, width=1.5):
     p.close()
     c.drawPath(p, fill=1, stroke=0)
 
-
 def draw_tactical_pitch(c, x, y, w, h, rot_data):
-    # Campo arancio
     c.setFillColor(colors.HexColor("#FCEADE"))
     c.setStrokeColor(colors.black)
     c.setLineWidth(1)
     c.rect(x, y, w, h, fill=1, stroke=1)
     
-    # Rete spessa in alto
     c.setStrokeColor(colors.HexColor("#922B21"))
     c.setLineWidth(3)
     c.line(x, y + h, x + w, y + h)
     
-    # Linea 3 Metri
     c.setStrokeColor(colors.HexColor("#A6ACAF"))
     c.setLineWidth(1)
     c.line(x, y + h * 0.68, x + w, y + h * 0.68)
     
-    # Corridoi tratteggiati Z1/Z6/Z5
     c.setStrokeColor(colors.HexColor("#D5D8DC"))
     c.setLineWidth(0.6)
     c.setDash(2, 2)
     c.line(x + w * 0.33, y, x + w * 0.33, y + h * 0.68)
-    c.line(x + w * 0.66, y, x + w * 0.66, y + h * 0.68)
-    c.setDash()
-
-    # Percentuali e Volumi scritti DIRE
+    c.line(x + w * 0.66, y, x + w * 0.66,
