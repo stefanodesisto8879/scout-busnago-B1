@@ -8,9 +8,6 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
-# ==========================================================
-# PARSER CLICK&SCOUT (.dvw)
-# ==========================================================
 def parse_dvw(file_text, target_set=None):
     lines = file_text.splitlines()
     teams = {"home": "Busnago", "opp": "Avversario"}
@@ -99,4 +96,110 @@ def parse_dvw(file_text, target_set=None):
 
         if skill == "R":
             reception_stats[player]["tot"] += 1
-            if eval
+            if eval_char in reception_stats[player]:
+                reception_stats[player][eval_char] += 1
+        elif skill == "A":
+            attack_stats[player]["tot"] += 1
+            if eval_char in attack_stats[player]:
+                attack_stats[player][eval_char] += 1
+                
+            if start_z:
+                rotations[p_rot]["total_att"] += 1
+                rotations[p_rot]["att_dist"][start_z] += 1
+                rotations[p_rot]["attacks"].append((player, start_z, end_z, eval_char))
+                
+                p_role = opp_players.get(player, {}).get("role", "")
+                if start_z == "3" or p_role == "4" or "C" in opp_players.get(player, {}).get("name", ""):
+                    if end_z in ["2", "1"]:
+                        rotations[p_rot]["bases"]["K7"] += 1
+                    elif end_z in ["4", "5"]:
+                        rotations[p_rot]["bases"]["K1"] += 1
+                    else:
+                        rotations[p_rot]["bases"]["KC"] += 1
+        elif skill == "S":
+            if start_z and end_z:
+                rotations[p_rot]["serves"][f"#{player} Z{start_z}»Z{end_z}"] += 1
+
+    return {
+        "teams": teams,
+        "players": opp_players,
+        "rotations": rotations,
+        "reception": reception_stats,
+        "attack": attack_stats
+    }
+
+ATTACK_POS = {
+    "4": (0.18, 0.90), "3": (0.50, 0.90), "2": (0.82, 0.90),
+    "8": (0.50, 0.60), "6": (0.50, 0.60),
+}
+
+DEFENSE_POS = {
+    "1": (0.80, 0.15), "6": (0.50, 0.15), "5": (0.20, 0.15),
+    "9": (0.80, 0.45), "8": (0.50, 0.45), "7": (0.20, 0.45),
+    "2": (0.80, 0.70), "3": (0.50, 0.70), "4": (0.20, 0.70),
+}
+
+def draw_arrow(c, x1, y1, x2, y2, color, line_w=1.2):
+    c.setStrokeColor(color)
+    c.setFillColor(color)
+    c.setLineWidth(line_w)
+    c.line(x1, y1, x2, y2)
+    
+    ang = math.atan2(y2 - y1, x2 - x1)
+    alen = 5
+    awid = math.pi / 6
+    
+    p = c.beginPath()
+    p.moveTo(x2, y2)
+    p.lineTo(x2 - alen * math.cos(ang - awid), y2 - alen * math.sin(ang - awid))
+    p.lineTo(x2 - alen * math.cos(ang + awid), y2 - alen * math.sin(ang + awid))
+    p.close()
+    c.drawPath(p, fill=1, stroke=0)
+
+def draw_pitch(c, x, y, w, h, rot_data):
+    c.setFillColor(colors.HexColor("#FDF2E9"))
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1)
+    c.rect(x, y, w, h, fill=1, stroke=1)
+    
+    c.setStrokeColor(colors.HexColor("#A93226"))
+    c.setLineWidth(2.5)
+    c.line(x, y + h, x + w, y + h)
+    
+    c.setStrokeColor(colors.HexColor("#BDC3C7"))
+    c.setLineWidth(0.8)
+    c.line(x, y + h * 0.67, x + w, y + h * 0.67)
+
+    tot = max(1, rot_data["total_att"])
+    p4 = rot_data["att_dist"].get("4", 0)
+    p3 = rot_data["att_dist"].get("3", 0)
+    p2 = rot_data["att_dist"].get("2", 0)
+    
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.rect(x + 2, y + h - 13, 30, 11, fill=1, stroke=0)
+    c.rect(x + w/2 - 15, y + h - 13, 30, 11, fill=1, stroke=0)
+    c.rect(x + w - 32, y + h - 13, 30, 11, fill=1, stroke=0)
+    
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 6.5)
+    c.drawString(x + 4, y + h - 10, f"4:{p4*100//tot}%")
+    c.drawString(x + w/2 - 13, y + h - 10, f"3:{p3*100//tot}%")
+    c.drawString(x + w - 30, y + h - 10, f"2:{p2*100//tot}%")
+
+    for att in rot_data["attacks"]:
+        _, sz, ez, ev = att
+        if sz in ATTACK_POS and ez in DEFENSE_POS:
+            x1 = x + ATTACK_POS[sz][0] * w
+            y1 = y + ATTACK_POS[sz][1] * h
+            x2 = x + DEFENSE_POS[ez][0] * w
+            y2 = y + DEFENSE_POS[ez][1] * h
+            
+            if ev == "#":
+                col = colors.HexColor("#27AE60")
+                lw = 1.5
+            elif ev in ["=", "/"]:
+                col = colors.HexColor("#E74C3C")
+                lw = 1.5
+            else:
+                col = colors.HexColor("#2980B9")
+                lw = 0.9
