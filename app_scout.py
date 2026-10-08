@@ -98,10 +98,10 @@ def parse_dvw(file_text, target_set=None):
             reception_stats[player]["tot"] += 1
             if eval_char in reception_stats[player]:
                 reception_stats[player][eval_char] += 1
-        elif skill == "A":
-            attack_stats[player]["tot"] += 1
-            if eval_char in attack_stats[player]:
-                attack_stats[player][eval_char] += 1
+       if skill == "R":
+         reception_stats[player]["tot"] += 1
+         if eval_char in reception_stats[player]:
+             reception_stats[player][eval_char] += 1
                 
             if start_z:
                 rotations[p_rot]["total_att"] += 1
