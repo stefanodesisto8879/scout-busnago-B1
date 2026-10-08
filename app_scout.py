@@ -42,7 +42,7 @@ SERVE_TARGET = {
 }
 
 # ==========================================================
-# PARSER CLICK&SCOUT (.dvw) - RELAZIONE BASE CENTRALE -> ZONA ALZATA
+# PARSER CLICK&SCOUT (.dvw)
 # ==========================================================
 def parse_dvw(file_text, target_set=None):
     lines = file_text.splitlines()
@@ -94,7 +94,6 @@ def parse_dvw(file_text, target_set=None):
             "attacks": [],
             "serves_data": [],
             "att_dist": defaultdict(int),
-            # Relazione: base_centrale -> {zona_alzata: conteggio}
             "center_base_dist": defaultdict(lambda: defaultdict(int)),
             "center_base_tot": defaultdict(int),
             "total_att": 0
@@ -158,7 +157,6 @@ def parse_dvw(file_text, target_set=None):
         skill = code[3]
         eval_char = code[5] if len(code) > 5 else ""
         
-        # Combinazione d'attacco / tempo da colonna 13 o codice Data Volley
         custom_call = parts[13].strip() if len(parts) > 13 and parts[13].strip() else ""
         attack_type = code[3:5] if len(code) >= 5 else ""
 
@@ -231,7 +229,6 @@ def parse_dvw(file_text, target_set=None):
                     rotations[p_rot]["attacks"].append(att_rec)
                     opp_att[player]["attacks"].append(att_rec)
                     
-                    # Determinazione della Base del Centrale (K1, K7, KC o custom)
                     p_info = opp_players.get(player, {})
                     p_role = str(p_info.get("role", "")).strip()
                     p_name = p_info.get("name", "").upper()
@@ -247,16 +244,14 @@ def parse_dvw(file_text, target_set=None):
                     elif is_center:
                         base_call = "KC"
                     else:
-                        # Se l'attacco non specifica una combinazione particolare, usa K1 come base standard
                         base_call = "K1"
 
-                    # Zona finale dove il palleggiatore ha spinto la palla (Posto 4, 3, 2, Pipe)
                     if start_z == "4":
                         set_dest = "Z4"
                     elif start_z == "2":
                         set_dest = "Z2"
                     elif start_z == "3":
-                        set_dest = "Z3 (C)"
+                        set_dest = "Z3"
                     elif start_z in ["8", "6"]:
                         set_dest = "Pipe"
                     else:
@@ -397,7 +392,7 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
             draw_trajectory(c, x1, y1, x2, y2, col, line_w=lw)
 
 # ==========================================================
-# BOX BATTITORE
+# BOX BATTITORE COMPATTO (h=62pt per evitare sovrapposizioni)
 # ==========================================================
 def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     server_counts = defaultdict(int)
@@ -406,21 +401,21 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
         
     main_server = max(server_counts, key=server_counts.get) if server_counts else None
     
-    header_h = 18
+    header_h = 16
     c.setFillColor(colors.HexColor("#34495E"))
     c.rect(x, y + h - header_h, w, header_h, fill=1, stroke=0)
     
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 6.2)
-    c.drawString(x + 4, y + h - 7, "BATTITORE:")
+    c.setFont("Helvetica-Bold", 6.0)
+    c.drawString(x + 3, y + h - 7, "BATTITORE:")
     
     if main_server:
-        s_name = players_dict.get(main_server, {}).get("name", "")[:12]
-        c.setFont("Helvetica-Bold", 7.0)
-        c.drawString(x + 4, y + h - 15, f"#{main_server} {s_name}")
+        s_name = players_dict.get(main_server, {}).get("name", "")[:10]
+        c.setFont("Helvetica-Bold", 6.8)
+        c.drawString(x + 3, y + h - 14, f"#{main_server} {s_name}")
     else:
-        c.setFont("Helvetica", 6.2)
-        c.drawString(x + 4, y + h - 15, "Nessun dato")
+        c.setFont("Helvetica", 6.0)
+        c.drawString(x + 3, y + h - 14, "N/D")
 
     court_h = h - header_h
     c.setFillColor(colors.HexColor("#FFFFFF"))
@@ -429,11 +424,11 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.rect(x, y, w, court_h, fill=1, stroke=1)
     
     c.setStrokeColor(colors.black)
-    c.setLineWidth(2.0)
+    c.setLineWidth(1.8)
     c.line(x, y + court_h, x + w, y + court_h)
 
     c.setStrokeColor(colors.HexColor("#F5B7B1"))
-    c.setLineWidth(0.6)
+    c.setLineWidth(0.5)
     c.setDash(2, 2)
     w_th = w / 3.0
     h_th = court_h / 3.0
@@ -443,7 +438,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.line(x, y + 2 * h_th, x + w, y + 2 * h_th)
     c.setDash()
 
-    c.setFont("Helvetica", 5.5)
+    c.setFont("Helvetica", 5.0)
     c.setFillColor(colors.HexColor("#BDC3C7"))
     c.drawCentredString(x + w_th * 0.5, y + h_th * 2.5 - 2, "4")
     c.drawCentredString(x + w_th * 1.5, y + h_th * 2.5 - 2, "3")
@@ -468,34 +463,32 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             
             if cnt == max_c and max_c > 1:
                 c.setFillColor(colors.HexColor("#8E44AD"))
-                rad = 7.0
+                rad = 6.5
             else:
                 c.setFillColor(colors.HexColor("#2C3E50"))
-                rad = 5.5
+                rad = 5.0
                 
             c.circle(zx, zy, rad, fill=1, stroke=0)
             c.setFillColor(colors.white)
-            c.setFont("Helvetica-Bold", 7.0)
-            c.drawCentredString(zx, zy - 2.5, str(cnt))
+            c.setFont("Helvetica-Bold", 6.5)
+            c.drawCentredString(zx, zy - 2.2, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF DELLE PAGINE LIVE (RELAZIONE BASE C -> ZONA ALZATA)
+# GENERATORE PDF (LAYOUT ORDINATO SENZA SOVRAPPOSIZIONI)
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=landscape(A4))
     width, height = landscape(A4)
     
-    # ----------------------------------------------------
-    # HEADER PAGINA 1
-    # ----------------------------------------------------
+    # Header
     c.setFillColor(colors.HexColor("#1A252F"))
     c.rect(0, height - 34, width, 34, fill=1, stroke=0)
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20, height - 20, f"STUDIO TATTICO LIVE: {data['teams']['opp']} vs {data['teams']['home']}")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Relazione Base Centrale -> Zona Alzata  |  Target Tattici & Scelte Chiave")
+    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Relazione Base C -> Spinta Alzata  |  Target Tattici")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
@@ -533,92 +526,82 @@ def generate_pdf(data, set_label="Gara"):
         cx, cy = bx + 5, by + 8
         draw_full_pitch(c, cx, cy, cw, ch, rot["attacks"], p_dist=rot["att_dist"], total_att=rot["total_att"])
         
-        # Box Battitore
-        sx, sy = bx + cw + 10, by + 8
-        sw, sh = bw - cw - 15, 74
+        # Box Battitore (h compatto a 62pt)
+        sx, sy = bx + cw + 8, by + 8
+        sw, sh = bw - cw - 14, 62
         draw_serve_box_with_player(c, sx, sy, sw, sh, rot["serves_data"], data["opp_players"])
         
         # ====================================================
-        # RELAZIONE BASE CENTRALE -> ZONA DOVE HA ALZATO
+        # COLONNA DESTRA: RELAZIONE BASE C -> ALZATA (SENZA SOVRAPPOSIZIONI)
         # ====================================================
-        dx = bx + cw + 10
-        dw = bw - cw - 15
-        top_y = by + bh - 24
+        dx = bx + cw + 8
+        dw = bw - cw - 14
         
+        # Titolo sezione
         c.setFillColor(colors.HexColor("#1A252F"))
-        c.setFont("Helvetica-Bold", 7.0)
-        c.drawString(dx, top_y, "BASE CENTRALE -> ALZATA:")
+        c.setFont("Helvetica-Bold", 6.8)
+        c.drawString(dx, by + bh - 26, "BASE C -> ALZATA:")
         
-        # Ordina per basi più giocate (es. K1, K7, KC)
         sorted_bases = sorted(rot["center_base_tot"].items(), key=lambda x: x[1], reverse=True)
-        draw_y = top_y - 12
+        
+        # Coordinate Y fisse e controllate per evitare sovrapposizioni
+        cur_y = by + bh - 38
         
         if sorted_bases:
             for b_idx, (b_name, b_tot) in enumerate(sorted_bases[:2]):
                 dest_map = rot["center_base_dist"][b_name]
-                # Ordina le zone dove ha spinto la palla su questa base
                 sorted_dests = sorted(dest_map.items(), key=lambda x: x[1], reverse=True)
                 
-                # Card Base
+                # Sfondo card base
+                box_h = 24 if len(sorted_dests) > 1 else 17
                 c.setFillColor(colors.HexColor("#FEF9E7") if b_idx == 0 else colors.HexColor("#F4F6F6"))
                 c.setStrokeColor(colors.HexColor("#F39C12") if b_idx == 0 else colors.HexColor("#BDC3C7"))
-                card_h = 24 if len(sorted_dests) > 1 else 17
-                c.roundRect(dx, draw_y - card_h + 3, dw, card_h, 2, fill=1, stroke=1)
+                c.roundRect(dx, cur_y - box_h, dw, box_h, 2, fill=1, stroke=1)
                 
-                # Nome Base
-                c.setFont("Helvetica-Bold", 6.8)
+                # Etichetta base
+                c.setFont("Helvetica-Bold", 6.5)
                 c.setFillColor(colors.HexColor("#B7950B") if b_idx == 0 else colors.HexColor("#2C3E50"))
-                c.drawString(dx + 3, draw_y - 5, f"Base {b_name} ({b_tot}p):")
+                c.drawString(dx + 3, cur_y - 8, f"Base {b_name} ({b_tot}p):")
                 
-                # Dettaglio zone dove alza
-                line_y = draw_y - 13
+                # Destinazioni
+                d_y = cur_y - 15
                 for d_zone, d_cnt in sorted_dests[:2]:
                     pct_d = (d_cnt / b_tot) * 100
-                    c.setFont("Helvetica-Bold", 6.4)
-                    # Colora in rosso/arancio se la tendenza è dominante (>= 50%)
-                    if pct_d >= 50:
-                        c.setFillColor(colors.HexColor("#C0392B"))
-                    else:
-                        c.setFillColor(colors.HexColor("#2C3E50"))
-                    c.drawString(dx + 6, line_y, f"-> {d_zone}: {pct_d:.0f}% ({d_cnt})")
+                    c.setFont("Helvetica-Bold", 6.0)
+                    c.setFillColor(colors.HexColor("#C0392B") if pct_d >= 50 else colors.HexColor("#2C3E50"))
+                    c.drawString(dx + 5, d_y, f"-> {d_zone}: {pct_d:.0f}%")
                     
                     # Micro barra percentuale
-                    b_bar_w = (dw - 48) * (pct_d / 100.0)
+                    bar_w = (dw - 46) * (pct_d / 100.0)
                     c.setFillColor(colors.HexColor("#E67E22") if pct_d >= 50 else colors.HexColor("#3498DB"))
-                    c.rect(dx + dw - 34, line_y + 1, max(2, b_bar_w), 2.5, fill=1, stroke=0)
+                    c.rect(dx + dw - 24, d_y + 0.5, max(2, bar_w), 2.2, fill=1, stroke=0)
                     
-                    line_y -= 8.5
-                    
-                draw_y -= (card_h + 4)
+                    d_y -= 7.5
+                
+                cur_y -= (box_h + 3)
         else:
-            c.setFont("Helvetica-Oblique", 6.5)
+            c.setFont("Helvetica-Oblique", 6.2)
             c.setFillColor(colors.HexColor("#7F8C8D"))
-            c.drawString(dx, draw_y - 4, "Nessun attacco registrato")
-            draw_y -= 14
+            c.drawString(dx + 2, cur_y - 10, "Nessun attacco")
+            cur_y -= 25
 
-        # ====================================================
-        # BADGE IN RISALTO: SPINTA MASSIMA DEL PALLEGGIO
-        # ====================================================
+        # Badge SPINTA MAX posizionato stabilmente sopra il box battitore
         if rot["att_dist"] and rot["total_att"] > 0:
             top_z = max(rot["att_dist"], key=rot["att_dist"].get)
             top_pct = (rot["att_dist"][top_z] / rot["total_att"]) * 100
             
-            badge_h = 13.5
-            badge_y = by + sh + 9
+            badge_h = 12
+            badge_y = by + sh + 5
             
-            if top_pct >= 50:
-                c.setFillColor(colors.HexColor("#C0392B"))
-            else:
-                c.setFillColor(colors.HexColor("#2C3E50"))
-                
+            c.setFillColor(colors.HexColor("#C0392B") if top_pct >= 50 else colors.HexColor("#2C3E50"))
             c.roundRect(dx, badge_y, dw, badge_h, 2.5, fill=1, stroke=0)
             
             c.setFillColor(colors.white)
-            c.setFont("Helvetica-Bold", 7.0)
-            c.drawCentredString(dx + dw / 2.0, badge_y + 3.8, f"SPINTA MAX: Z{top_z} ({top_pct:.0f}%)")
+            c.setFont("Helvetica-Bold", 6.6)
+            c.drawCentredString(dx + dw / 2.0, badge_y + 3.5, f"SPINTA MAX: Z{top_z} ({top_pct:.0f}%)")
 
     # ----------------------------------------------------
-    # PANNELLO DESTRO: METRICHE SQUADRE & TARGET TATTICI
+    # PANNELLO DESTRO METRICHE (HIGH CONTRAST & SEPARATO)
     # ----------------------------------------------------
     px = 626
     py = height - 500
@@ -639,8 +622,8 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = py + ph - 26
 
-    # 1. PUNTI DIRETTI (H2H)
-    card_pts_h = 68
+    # 1. PUNTI DIRETTI
+    card_pts_h = 66
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#CFD8DC"))
     c.rect(px + 6, c_y - card_pts_h, pw - 12, card_pts_h, fill=1, stroke=1)
@@ -687,14 +670,14 @@ def generate_pdf(data, set_label="Gara"):
         c.rect(b_x + max(2, w_h) + 1.5, y_pos, max(2, w_o), 5.5, fill=1, stroke=0)
 
     draw_skill_row(c_y - 25, "Attacco", h_att_pts, o_att_pts)
-    draw_skill_row(c_y - 38, "Ace", h_ace_pts, o_ace_pts)
-    draw_skill_row(c_y - 51, "Muro", h_blk_pts, o_blk_pts)
+    draw_skill_row(c_y - 37, "Ace", h_ace_pts, o_ace_pts)
+    draw_skill_row(c_y - 49, "Muro", h_blk_pts, o_blk_pts)
 
     tot_h_pts = h_att_pts + h_ace_pts + h_blk_pts
     tot_o_pts = o_att_pts + o_ace_pts + o_blk_pts
     c.setFont("Helvetica-Bold", 6.8)
     c.setFillColor(colors.HexColor("#1B4F72") if tot_h_pts >= tot_o_pts else colors.HexColor("#D35400"))
-    c.drawString(px + 10, c_y - 63, f"Totale Vincenti: Busnago {tot_h_pts}  -  Avversario {tot_o_pts}")
+    c.drawString(px + 10, c_y - 61, f"Totale Vincenti: Busnago {tot_h_pts}  -  Avversario {tot_o_pts}")
 
     c_y = c_y - card_pts_h - 4
 
@@ -837,9 +820,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = c_y - card_busnago_h - 4
 
-    # ====================================================
     # 4. TARGET AVVERSARI
-    # ====================================================
     card_opp_h = 104
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#D35400"))
