@@ -42,9 +42,9 @@ SERVE_TARGET = {
 }
 
 # ==========================================================
-# PARSER CLICK&SCOUT (.dvw)
+# PARSER CLICK&SCOUT (.dvw) - SINGOLA GARA O SET
 # ==========================================================
-def parse_dvw(file_text, target_set=None):
+def parse_dvw(file_text, target_set=None, force_opp_name=None):
     lines = file_text.splitlines()
     teams = {"home": "Busnago", "opp": "Avversario"}
     home_players = {}
@@ -89,6 +89,14 @@ def parse_dvw(file_text, target_set=None):
             break
         idx += 1
 
+    # Inverti se l'avversario target era segnato come squadra di casa
+    is_swapped = False
+    if force_opp_name:
+        if force_opp_name.lower() in teams["home"].lower():
+            teams["home"], teams["opp"] = teams["opp"], teams["home"]
+            home_players, opp_players = opp_players, home_players
+            is_swapped = True
+
     rotations = {
         p: {
             "attacks": [],
@@ -103,7 +111,6 @@ def parse_dvw(file_text, target_set=None):
     
     opp_rec = defaultdict(lambda: {"#": 0, "+": 0, "!": 0, "-": 0, "/": 0, "=": 0, "tot": 0})
     opp_att = defaultdict(lambda: {"#": 0, "+": 0, "-": 0, "/": 0, "=": 0, "tot": 0, "attacks": []})
-    
     home_rec = defaultdict(lambda: {"#": 0, "+": 0, "!": 0, "-": 0, "/": 0, "=": 0, "tot": 0})
     home_att = defaultdict(lambda: {"#": 0, "+": 0, "-": 0, "/": 0, "=": 0, "tot": 0, "attacks": []})
     home_srv = defaultdict(lambda: {"#": 0, "+": 0, "-": 0, "/": 0, "=": 0, "tot": 0})
@@ -152,7 +159,13 @@ def parse_dvw(file_text, target_set=None):
         if len(code) < 4:
             continue
             
-        team_char = code[0]
+        raw_team_char = code[0]
+        # Regola il carattere squadra se invertita
+        if is_swapped:
+            team_char = "a" if raw_team_char == "*" else ("*" if raw_team_char == "a" else raw_team_char)
+        else:
+            team_char = raw_team_char
+
         player = code[1:3]
         skill = code[3]
         eval_char = code[5] if len(code) > 5 else ""
@@ -276,6 +289,61 @@ def parse_dvw(file_text, target_set=None):
     }
 
 # ==========================================================
+# AGGREGATORE STATISTICO MULTI-GARA (FINO A 5+ GARE)
+# ==========================================================
+def aggregate_scouts(scout_list, target_opp_name="Avversario"):
+    if not scout_list:
+        return None
+
+    combined = scout_list[0]
+    combined["teams"]["opp"] = target_opp_name
+    combined["teams"]["home"] = "Studio Multi-Gara"
+
+    for other in scout_list[1:]:
+        # 1. Unisci Giocatori
+        for p_num, p_info in other["opp_players"].items():
+            if p_num not in combined["opp_players"]:
+                combined["opp_players"][p_num] = p_info
+
+        # 2. Rotazioni P1-P6
+        for p in range(1, 7):
+            c_rot = combined["rotations"][p]
+            o_rot = other["rotations"][p]
+            c_rot["attacks"].extend(o_rot["attacks"])
+            c_rot["serves_data"].extend(o_rot["serves_data"])
+            c_rot["total_att"] += o_rot["total_att"]
+            for z, cnt in o_rot["att_dist"].items():
+                c_rot["att_dist"][z] += cnt
+            for base, cnt in o_rot["center_base_tot"].items():
+                c_rot["center_base_tot"][base] += cnt
+            for base, dest_dict in o_rot["center_base_dist"].items():
+                for dest_z, cnt in dest_dict.items():
+                    c_rot["center_base_dist"][base][dest_z] += cnt
+
+        # 3. Ricezione Avversaria
+        for p_num, r_stat in other["opp_reception"].items():
+            for k, val in r_stat.items():
+                combined["opp_reception"][p_num][k] += val
+
+        # 4. Attacco Avversario
+        for p_num, a_stat in other["opp_attack"].items():
+            for k in ["#", "+", "-", "/", "=", "tot"]:
+                combined["opp_attack"][p_num][k] += a_stat[k]
+            combined["opp_attack"][p_num]["attacks"].extend(a_stat["attacks"])
+
+        # 5. Punti e Fasi
+        for side in ["home", "opp"]:
+            for sk in ["attack", "serve", "block"]:
+                combined["skill_points"][side][sk] += other["skill_points"][side][sk]
+            for ph in ["cp_tot", "cp_kill", "bp_tot", "bp_kill"]:
+                combined["phase_stats"][side][ph] += other["phase_stats"][side][ph]
+
+        combined["home_errors"]["attack"] += other["home_errors"]["attack"]
+        combined["home_errors"]["serve"] += other["home_errors"]["serve"]
+
+    return combined
+
+# ==========================================================
 # MOTORE GRAFICO VETTORIALE (FRECCE & PUNTINE)
 # ==========================================================
 def draw_trajectory(c, x1, y1, x2, y2, color, line_w=1.4):
@@ -298,7 +366,7 @@ def draw_trajectory(c, x1, y1, x2, y2, color, line_w=1.4):
     c.drawPath(p, fill=1, stroke=0)
 
 # ==========================================================
-# CAMPO BIANCO CON SOTTOZONE CLICK&SCOUT (NUMERI PICCOLI IN ALTO A SINISTRA)
+# CAMPO BIANCO CON SOTTOZONE CLICK&SCOUT (NUMERI PICCOLI IN ALTO)
 # ==========================================================
 def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
     c.setFillColor(colors.HexColor("#FFFFFF"))
@@ -330,40 +398,32 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
     c.line(x, net_y - 2 * h_third, x + w, net_y - 2 * h_third)
     c.setDash()
 
-    # ========================================================
-    # NUMERI SOTTOZONE PICCOLI NELL'ANGOLINO IN ALTO A SINISTRA
-    # ========================================================
+    # Numeri sottozone piccoli nell'angolino in alto a sinistra
     c.setFont("Helvetica", 4.8)
     c.setFillColor(colors.HexColor("#7F8C8D"))
 
-    # Metà superiore (Attacco Avversario) - angolo in alto a sinistra di ciascuna cella
-    # Fila di fondo (1, 6, 5)
+    # Metà superiore
     c.drawString(x + 2.5, net_y + 3 * h_third - 6, "1")
     c.drawString(x + w_third + 2.5, net_y + 3 * h_third - 6, "6")
     c.drawString(x + 2 * w_third + 2.5, net_y + 3 * h_third - 6, "5")
 
-    # Fila intermedia (9, 8, 7)
     c.drawString(x + 2.5, net_y + 2 * h_third - 6, "9")
     c.drawString(x + w_third + 2.5, net_y + 2 * h_third - 6, "8")
     c.drawString(x + 2 * w_third + 2.5, net_y + 2 * h_third - 6, "7")
 
-    # Fila a rete (2, 3, 4)
     c.drawString(x + 2.5, net_y + h_third - 6, "2")
     c.drawString(x + w_third + 2.5, net_y + h_third - 6, "3")
     c.drawString(x + 2 * w_third + 2.5, net_y + h_third - 6, "4")
 
-    # Metà inferiore (Nostra Difesa) - angolo in alto a sinistra di ciascuna cella
-    # Fila a rete (4, 3, 2)
+    # Metà inferiore
     c.drawString(x + 2.5, net_y - 6, "4")
     c.drawString(x + w_third + 2.5, net_y - 6, "3")
     c.drawString(x + 2 * w_third + 2.5, net_y - 6, "2")
 
-    # Fila intermedia (9, 8, 7)
     c.drawString(x + 2.5, net_y - h_third - 6, "9")
     c.drawString(x + w_third + 2.5, net_y - h_third - 6, "8")
     c.drawString(x + 2 * w_third + 2.5, net_y - h_third - 6, "7")
 
-    # Fila di fondo (5, 6, 1)
     c.drawString(x + 2.5, net_y - 2 * h_third - 6, "5")
     c.drawString(x + w_third + 2.5, net_y - 2 * h_third - 6, "6")
     c.drawString(x + 2 * w_third + 2.5, net_y - 2 * h_third - 6, "1")
@@ -404,7 +464,7 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
             draw_trajectory(c, x1, y1, x2, y2, col, line_w=lw)
 
 # ==========================================================
-# BOX BATTITORE
+# BOX BATTITORE COMPATTO
 # ==========================================================
 def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     server_counts = defaultdict(int)
@@ -450,7 +510,6 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.line(x, y + 2 * h_th, x + w, y + 2 * h_th)
     c.setDash()
 
-    # Numeri piccoli in alto nell'angolino anche nel campo battitore
     c.setFont("Helvetica", 4.5)
     c.setFillColor(colors.HexColor("#BDC3C7"))
     c.drawString(x + 2, y + 3 * h_th - 5, "4")
@@ -487,7 +546,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.2, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF DELLE PAGINE LIVE
+# GENERATORE PDF DELLE PAGINE REPORT
 # ==========================================================
 def generate_pdf(data, set_label="Gara"):
     buf = io.BytesIO()
@@ -501,9 +560,9 @@ def generate_pdf(data, set_label="Gara"):
     c.rect(0, height - 34, width, 34, fill=1, stroke=0)
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(20, height - 20, f"STUDIO TATTICO LIVE: {data['teams']['opp']} vs {data['teams']['home']}")
+    c.drawString(20, height - 20, f"STUDIO TATTICO: {data['teams']['opp']} (Analisi: {set_label})")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, f"Analisi: {set_label}  |  Relazione Base C -> Spinta Alzata  |  Target Tattici")
+    c.drawString(20, height - 30, "Campo con Sottozone 1-9  |  Relazione Base C -> Spinta Alzata  |  Decisioni e Target Tattici")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
@@ -546,9 +605,7 @@ def generate_pdf(data, set_label="Gara"):
         sw, sh = bw - cw - 14, 62
         draw_serve_box_with_player(c, sx, sy, sw, sh, rot["serves_data"], data["opp_players"])
         
-        # ====================================================
-        # COLONNA DESTRA: RELAZIONE BASE C -> ALZATA
-        # ====================================================
+        # Colonna Destra: Base C -> Alzata
         dx = bx + cw + 8
         dw = bw - cw - 14
         
@@ -631,7 +688,7 @@ def generate_pdf(data, set_label="Gara"):
 
     c_y = py + ph - 26
 
-    # 1. PUNTI DIRETTI
+    # 1. PUNTI DIRETTI (SENZA SBORDAMENTI)
     card_pts_h = 66
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#CFD8DC"))
@@ -1075,113 +1132,171 @@ def generate_pdf(data, set_label="Gara"):
     return buf
 
 # ==========================================================
-# INTERFACCIA STREAMLIT
+# INTERFACCIA STREAMLIT (DOPPIA MODALITÀ: PRE-GARA & LIVE)
 # ==========================================================
 def main():
     st.set_page_config(page_title="Volley Scout Dashboard", layout="wide")
-    st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-    st.write("Dossier Completo: Pre-Gara Memorizzato + Relazione Base Centrale / Zona Alzata.")
+    
+    st.sidebar.title("🏐 Scout Dashboard")
+    modalita = st.sidebar.radio(
+        "Seleziona Funzione:",
+        ["🔴 Live Match (Set per Set)", "📊 Studio Pre-Gara (Multi-Gara)"]
+    )
 
-    if "saved_pre_pdf_bytes" not in st.session_state:
-        st.session_state["saved_pre_pdf_bytes"] = None
-    if "saved_pre_pdf_name" not in st.session_state:
-        st.session_state["saved_pre_pdf_name"] = ""
+    # ----------------------------------------------------
+    # MODALITÀ 1: LIVE MATCH (1 GARA / SET PER SET)
+    # ----------------------------------------------------
+    if modalita == "🔴 Live Match (Set per Set)":
+        st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
+        st.write("Aggiornamento fine set con memoria automatica del dossier pre-gara.")
 
-    col_pre, col_scout = st.columns(2)
+        if "saved_pre_pdf_bytes" not in st.session_state:
+            st.session_state["saved_pre_pdf_bytes"] = None
+        if "saved_pre_pdf_name" not in st.session_state:
+            st.session_state["saved_pre_pdf_name"] = ""
 
-    with col_pre:
-        st.subheader("1. Studio Pre-Gara (Carica 1 volta sola)")
-        if st.session_state["saved_pre_pdf_bytes"] is not None:
-            st.success(f"✅ Pre-gara memorizzato in sessione: **{st.session_state['saved_pre_pdf_name']}**")
-            if st.button("🗑️ Rimuovi / Cambia Pre-Gara"):
-                st.session_state["saved_pre_pdf_bytes"] = None
-                st.session_state["saved_pre_pdf_name"] = ""
-                st.rerun()
-        else:
-            uploaded_pre = st.file_uploader(
-                "Carica qui il PDF del tuo studio pre-gara:",
-                type=["pdf"]
+        col_pre, col_scout = st.columns(2)
+
+        with col_pre:
+            st.subheader("1. Studio Pre-Gara (Carica 1 volta sola)")
+            if st.session_state["saved_pre_pdf_bytes"] is not None:
+                st.success(f"✅ Pre-gara memorizzato: **{st.session_state['saved_pre_pdf_name']}**")
+                if st.button("🗑️ Rimuovi / Cambia Pre-Gara"):
+                    st.session_state["saved_pre_pdf_bytes"] = None
+                    st.session_state["saved_pre_pdf_name"] = ""
+                    st.rerun()
+            else:
+                uploaded_pre = st.file_uploader(
+                    "Carica qui il PDF del tuo studio pre-gara:",
+                    type=["pdf"]
+                )
+                if uploaded_pre:
+                    st.session_state["saved_pre_pdf_bytes"] = uploaded_pre.getvalue()
+                    st.session_state["saved_pre_pdf_name"] = uploaded_pre.name
+                    st.success(f"✅ Memorizzato per tutti i set: **{uploaded_pre.name}**")
+                    st.rerun()
+
+        with col_scout:
+            st.subheader("2. Dati Scout Live")
+            metodo = st.radio(
+                "Modalità inserimento scout:",
+                ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
+                horizontal=True
             )
-            if uploaded_pre:
-                st.session_state["saved_pre_pdf_bytes"] = uploaded_pre.getvalue()
-                st.session_state["saved_pre_pdf_name"] = uploaded_pre.name
-                st.success(f"✅ Memorizzato per tutti i set: **{uploaded_pre.name}**")
-                st.rerun()
 
-    with col_scout:
-        st.subheader("2. Dati Scout (Aggiorna fine set)")
-        metodo = st.radio(
-            "Modalità inserimento scout:",
-            ["📁 Carica File Scout", "📋 Incolla Testo Scout"],
-            horizontal=True
+            text = None
+            if metodo == "📁 Carica File Scout":
+                uploaded_file = st.file_uploader(
+                    "Seleziona il file scout aggiornato:",
+                    type=None
+                )
+                if uploaded_file:
+                    text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+            else:
+                raw_text = st.text_area(
+                    "Incolla qui il contenuto aggiornato di Click&Scout:",
+                    height=160,
+                    placeholder="Incolla le righe di Click&Scout..."
+                )
+                if raw_text.strip():
+                    text = raw_text
+
+        if text:
+            col_set, _ = st.columns([3, 3])
+            with col_set:
+                set_choice = st.selectbox(
+                    "Seleziona il Set da analizzare:",
+                    ["Gara Completa", "Set 1", "Set 2", "Set 3", "Set 4", "Set 5"]
+                )
+                
+            t_set = None
+            if set_choice != "Gara Completa":
+                match_s = re.search(r"\d+", set_choice)
+                if match_s:
+                    t_set = int(match_s.group(0))
+
+            scout_data = parse_dvw(text, target_set=t_set)
+            
+            if not scout_data:
+                st.error("Formato scout non valido o privo di dati.")
+                return
+                
+            st.success(f"Dati elaborati: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
+            
+            live_pdf_buf = generate_pdf(scout_data, set_label=set_choice)
+
+            if st.session_state["saved_pre_pdf_bytes"] is not None:
+                merger = PdfWriter()
+                r_pre = PdfReader(io.BytesIO(st.session_state["saved_pre_pdf_bytes"]))
+                for page in r_pre.pages:
+                    merger.add_page(page)
+                r_live = PdfReader(live_pdf_buf)
+                for page in r_live.pages:
+                    merger.add_page(page)
+                out_buf = io.BytesIO()
+                merger.write(out_buf)
+                out_buf.seek(0)
+                final_data = out_buf
+                btn_label = f"📄 Scarica Dossier Completo (Pre-Gara + Analisi {set_choice})"
+                file_name_out = f"Dossier_Completo_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+            else:
+                final_data = live_pdf_buf
+                btn_label = f"📄 Scarica Scheda Tattica Grafica ({set_choice})"
+                file_name_out = f"Scheda_Live_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
+
+            st.download_button(
+                label=btn_label,
+                data=final_data,
+                file_name=file_name_out,
+                mime="application/pdf"
+            )
+
+    # ----------------------------------------------------
+    # MODALITÀ 2: STUDIO PRE-GARA (MULTI-GARA, FINO A 5+ FILE)
+    # ----------------------------------------------------
+    else:
+        st.title("📊 Studio Tattico Pre-Gara (Analisi Cumulativa Multi-Gara)")
+        st.write("Carica più file .dvw (fino a 5 o più partite) per analizzare le abitudini consolidate dell'avversario.")
+
+        target_opp = st.text_input(
+            "Nome della squadra avversaria da studiare (lascia vuoto per rilevamento automatico):",
+            value="",
+            placeholder="Es. Scandicci, Vero Volley, ecc..."
         )
 
-        text = None
-        if metodo == "📁 Carica File Scout":
-            uploaded_file = st.file_uploader(
-                "Seleziona il file scout aggiornato (estensione .dvw o .txt):",
-                type=None
-            )
-            if uploaded_file:
-                text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
-        else:
-            raw_text = st.text_area(
-                "Incolla qui il contenuto aggiornato di Click&Scout:",
-                height=160,
-                placeholder="Incolla le righe di Click&Scout..."
-            )
-            if raw_text.strip():
-                text = raw_text
-
-    if text:
-        col_set, _ = st.columns([3, 3])
-        with col_set:
-            set_choice = st.selectbox(
-                "Seleziona il Set da analizzare:",
-                ["Gara Completa", "Set 1", "Set 2", "Set 3", "Set 4", "Set 5"]
-            )
-            
-        t_set = None
-        if set_choice != "Gara Completa":
-            match_s = re.search(r"\d+", set_choice)
-            if match_s:
-                t_set = int(match_s.group(0))
-
-        scout_data = parse_dvw(text, target_set=t_set)
-        
-        if not scout_data:
-            st.error("Formato scout non valido o privo di dati.")
-            return
-            
-        st.success(f"Dati elaborati: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
-        
-        live_pdf_buf = generate_pdf(scout_data, set_label=set_choice)
-
-        if st.session_state["saved_pre_pdf_bytes"] is not None:
-            merger = PdfWriter()
-            r_pre = PdfReader(io.BytesIO(st.session_state["saved_pre_pdf_bytes"]))
-            for page in r_pre.pages:
-                merger.add_page(page)
-            r_live = PdfReader(live_pdf_buf)
-            for page in r_live.pages:
-                merger.add_page(page)
-            out_buf = io.BytesIO()
-            merger.write(out_buf)
-            out_buf.seek(0)
-            final_data = out_buf
-            btn_label = f"📄 Scarica Dossier Completo (Pre-Gara + Analisi {set_choice})"
-            file_name_out = f"Dossier_Completo_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
-        else:
-            final_data = live_pdf_buf
-            btn_label = f"📄 Scarica Scheda Tattica Grafica ({set_choice})"
-            file_name_out = f"Scheda_Live_{scout_data['teams']['opp']}_{set_choice.replace(' ', '_')}.pdf"
-
-        st.download_button(
-            label=btn_label,
-            data=final_data,
-            file_name=file_name_out,
-            mime="application/pdf"
+        multi_files = st.file_uploader(
+            "Carica i file .dvw delle partite precedenti dell'avversario:",
+            accept_multiple_files=True,
+            type=None
         )
+
+        if multi_files:
+            st.info(f"📂 Caricati {len(multi_files)} file scout. Avvio aggregazione dati...")
+            
+            scout_results = []
+            for f in multi_files:
+                f_text = f.getvalue().decode("utf-8", errors="ignore")
+                parsed = parse_dvw(f_text, target_set=None, force_opp_name=target_opp if target_opp.strip() else None)
+                if parsed:
+                    scout_results.append(parsed)
+
+            if scout_results:
+                opp_team_name = target_opp.strip() if target_opp.strip() else scout_results[0]["teams"]["opp"]
+                agg_data = aggregate_scouts(scout_results, target_opp_name=opp_team_name)
+                
+                tot_attacks = sum(agg_data["rotations"][p]["total_att"] for p in range(1, 7))
+                st.success(f"Analisi aggregata completata con successo per **{opp_team_name}** ({len(scout_results)} partite, {tot_attacks} attacchi totali analizzati).")
+
+                pdf_buf = generate_pdf(agg_data, set_label=f"Studio Pre-Gara ({len(scout_results)} Gare)")
+
+                st.download_button(
+                    label=f"📄 Scarica Dossier Tattico Pre-Gara ({opp_team_name})",
+                    data=pdf_buf,
+                    file_name=f"Studio_PreGara_{opp_team_name}_{len(scout_results)}_Gare.pdf",
+                    mime="application/pdf"
+                )
+            else:
+                st.error("I file caricati non contengono dati scout validi.")
 
 if __name__ == "__main__":
     main()
