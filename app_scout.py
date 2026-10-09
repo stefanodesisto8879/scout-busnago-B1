@@ -9,6 +9,17 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 # ==========================================================
+# BENCHMARK MODELLO DI PRESTAZIONE BUSNAGO B1 2026-27
+# ==========================================================
+BENCHMARK_B1 = {
+    "serve": {"ace_min": 6.0, "err_max": 10.0},
+    "reception": {"pos_min": 50.0, "slash_max": 35.0, "err_max": 7.0},
+    "att_cp": {"kill_min": 35.0, "err_max": 15.0},
+    "att_bp": {"kill_min": 30.0, "err_max": 15.0},
+    "att_tot": {"kill_min": 32.0, "err_max": 16.0},
+}
+
+# ==========================================================
 # COORDINATE CAMPO RIGOROSE (SOTTOZONE CLICK&SCOUT)
 # ==========================================================
 ATTACK_ORIGIN_FULL = {
@@ -30,7 +41,7 @@ SERVE_TARGET = {
 }
 
 # ==========================================================
-# PARSER CLICK&SCOUT (.dvw) ESTESO PER ANALISI TATTICA SERIE A
+# PARSER CLICK&SCOUT (.dvw) CON SUPPORTO BENCHMARK
 # ==========================================================
 def parse_dvw(file_text, target_set=None, force_opp_name=None):
     lines = file_text.splitlines()
@@ -98,21 +109,13 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
     home_att = defaultdict(lambda: {"#": 0, "+": 0, "-": 0, "/": 0, "=": 0, "tot": 0, "attacks": []})
     home_srv = defaultdict(lambda: {"#": 0, "+": 0, "-": 0, "/": 0, "=": 0, "tot": 0})
 
-    # Strutture Avanzate Pre-Gara
     opp_servers_adv = defaultdict(lambda: {
         "types": defaultdict(int), "trajectories": defaultdict(int),
         "tot": 0, "ace": 0, "err": 0
     })
-    setter_on_rec = {
-        "pos": defaultdict(int),  # su # o +
-        "neg": defaultdict(int),  # su - o !
-        "tot_pos": 0, "tot_neg": 0
-    }
+    setter_on_rec = {"pos": defaultdict(int), "neg": defaultdict(int), "tot_pos": 0, "tot_neg": 0}
     money_time = defaultdict(lambda: {"tot": 0, "pts": 0, "err": 0})
-    phase_att = {
-        "cp": defaultdict(int), "bp": defaultdict(int),
-        "tot_cp": 0, "tot_bp": 0
-    }
+    phase_att = {"cp": defaultdict(int), "bp": defaultdict(int), "tot_cp": 0, "tot_bp": 0}
     shot_types = defaultdict(lambda: {"hard": 0, "tip": 0, "tot": 0})
     
     skill_points = {
@@ -120,9 +123,11 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
         "opp": {"attack": 0, "serve": 0, "block": 0}
     }
     home_errors = {"attack": 0, "serve": 0}
+    
+    # Statistiche dettagliate Fasi per verifica Target B1
     phase_stats = {
-        "home": {"cp_tot": 0, "cp_kill": 0, "bp_tot": 0, "bp_kill": 0},
-        "opp": {"cp_tot": 0, "cp_kill": 0, "bp_tot": 0, "bp_kill": 0}
+        "home": {"cp_tot": 0, "cp_kill": 0, "cp_err": 0, "bp_tot": 0, "bp_kill": 0, "bp_err": 0},
+        "opp": {"cp_tot": 0, "cp_kill": 0, "cp_err": 0, "bp_tot": 0, "bp_kill": 0, "bp_err": 0}
     }
     
     current_set = 1
@@ -171,7 +176,6 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
         start_z = traj_match.group(1) if traj_match else ""
         end_z = traj_match.group(2) if traj_match else ""
 
-        # Punteggio corrente per Money Time
         score_home = int(parts[14]) if len(parts) > 14 and parts[14].isdigit() else 0
         score_opp = int(parts[15]) if len(parts) > 15 and parts[15].isdigit() else 0
         is_money_time = (score_home >= 20 or score_opp >= 20)
@@ -195,15 +199,19 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
             elif skill == "A":
                 home_att[player]["tot"] += 1
                 if eval_char == "#": skill_points["home"]["attack"] += 1
-                if eval_char in ["=", "/"]: home_errors["attack"] += 1
+                is_err = eval_char in ["=", "/"]
+                if is_err: home_errors["attack"] += 1
                 if eval_char in home_att[player]: home_att[player][eval_char] += 1
+                
                 is_kill = (eval_char == "#")
                 if last_serve_team == "a":
                     phase_stats["home"]["cp_tot"] += 1
                     if is_kill: phase_stats["home"]["cp_kill"] += 1
+                    if is_err: phase_stats["home"]["cp_err"] += 1
                 else:
                     phase_stats["home"]["bp_tot"] += 1
                     if is_kill: phase_stats["home"]["bp_kill"] += 1
+                    if is_err: phase_stats["home"]["bp_err"] += 1
 
         # ---------------- AVVERSARI (a) ----------------
         elif team_char == "a":
@@ -214,8 +222,7 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
                 if eval_char == "#":
                     skill_points["opp"]["serve"] += 1
                     opp_servers_adv[player]["ace"] += 1
-                if eval_char == "=":
-                    opp_servers_adv[player]["err"] += 1
+                if eval_char == "=": opp_servers_adv[player]["err"] += 1
                 if start_z and end_z:
                     opp_servers_adv[player]["trajectories"][f"Z{start_z}->Z{end_z}"] += 1
                 if end_z:
@@ -234,20 +241,21 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
                 if eval_char == "#": skill_points["opp"]["attack"] += 1
                 if eval_char in opp_att[player]: opp_att[player][eval_char] += 1
                 is_kill = (eval_char == "#")
+                is_err = eval_char in ["=", "/"]
 
-                # Pilastro 4: CP vs BP
                 if last_serve_team == "*":
                     phase_stats["opp"]["cp_tot"] += 1
                     phase_att["tot_cp"] += 1
                     if start_z: phase_att["cp"][start_z] += 1
                     if is_kill: phase_stats["opp"]["cp_kill"] += 1
+                    if is_err: phase_stats["opp"]["cp_err"] += 1
                 else:
                     phase_stats["opp"]["bp_tot"] += 1
                     phase_att["tot_bp"] += 1
                     if start_z: phase_att["bp"][start_z] += 1
                     if is_kill: phase_stats["opp"]["bp_kill"] += 1
+                    if is_err: phase_stats["opp"]["bp_err"] += 1
 
-                # Pilastro 2: Palleggiatore su Ricezione
                 if last_opp_rec_eval in ["#", "+"]:
                     setter_on_rec["tot_pos"] += 1
                     if start_z: setter_on_rec["pos"][start_z] += 1
@@ -255,18 +263,14 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
                     setter_on_rec["tot_neg"] += 1
                     if start_z: setter_on_rec["neg"][start_z] += 1
 
-                # Pilastro 3: Money Time (20-25)
                 if is_money_time:
                     money_time[player]["tot"] += 1
                     if is_kill: money_time[player]["pts"] += 1
                     if eval_char in ["=", "/"]: money_time[player]["err"] += 1
 
-                # Pilastro 5: Tipologia di colpo
                 shot_types[player]["tot"] += 1
-                if hit_type in ["T", "P"]:
-                    shot_types[player]["tip"] += 1
-                else:
-                    shot_types[player]["hard"] += 1
+                if hit_type in ["T", "P"]: shot_types[player]["tip"] += 1
+                else: shot_types[player]["hard"] += 1
 
                 if start_z:
                     att_rec = (player, start_z, end_z, eval_char)
@@ -292,13 +296,13 @@ def parse_dvw(file_text, target_set=None, force_opp_name=None):
         "teams": teams, "home_players": home_players, "opp_players": opp_players,
         "rotations": rotations, "opp_reception": opp_rec, "opp_attack": opp_att,
         "home_reception": home_rec, "home_attack": home_att, "home_errors": home_errors,
-        "phase_stats": phase_stats, "skill_points": skill_points,
+        "home_srv": home_srv, "phase_stats": phase_stats, "skill_points": skill_points,
         "opp_servers_adv": opp_servers_adv, "setter_on_rec": setter_on_rec,
         "money_time": money_time, "phase_att": phase_att, "shot_types": shot_types
     }
 
 # ==========================================================
-# AGGREGATORE STATISTICO MULTI-GARA (FINO A 5+ GARE)
+# AGGREGATORE STATISTICO MULTI-GARA
 # ==========================================================
 def aggregate_scouts(scout_list, target_opp_name="Avversario"):
     if not scout_list: return None
@@ -329,9 +333,8 @@ def aggregate_scouts(scout_list, target_opp_name="Avversario"):
 
         for side in ["home", "opp"]:
             for sk in ["attack", "serve", "block"]: combined["skill_points"][side][sk] += other["skill_points"][side][sk]
-            for ph in ["cp_tot", "cp_kill", "bp_tot", "bp_kill"]: combined["phase_stats"][side][ph] += other["phase_stats"][side][ph]
+            for ph in ["cp_tot", "cp_kill", "cp_err", "bp_tot", "bp_kill", "bp_err"]: combined["phase_stats"][side][ph] += other["phase_stats"][side][ph]
 
-        # Aggrega le 5 metriche avanzate
         for p_num, s_data in other["opp_servers_adv"].items():
             combined["opp_servers_adv"][p_num]["tot"] += s_data["tot"]
             combined["opp_servers_adv"][p_num]["ace"] += s_data["ace"]
@@ -362,7 +365,7 @@ def aggregate_scouts(scout_list, target_opp_name="Avversario"):
     return combined
 
 # ==========================================================
-# GRAFICA VETTORIALE TRAIETTORIE & CAMPO BIANCO
+# GRAFICA VETTORIALE
 # ==========================================================
 def draw_trajectory(c, x1, y1, x2, y2, color, line_w=1.4):
     c.setFillColor(color)
@@ -394,7 +397,6 @@ def draw_full_pitch(c, x, y, w, h, attacks_list, p_dist=None, total_att=None):
     c.setStrokeColor(colors.black)
     c.setLineWidth(2.8)
     c.line(x, net_y, x + w, net_y)
-
     c.setLineWidth(1.0)
     c.line(x, net_y + h_third, x + w, net_y + h_third)
     c.line(x, net_y - h_third, x + w, net_y - h_third)
@@ -464,7 +466,6 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 6.0)
     c.drawString(x + 3, y + h - 7, "BATTITORE:")
-    
     if main_server:
         s_name = players_dict.get(main_server, {}).get("name", "")[:10]
         c.setFont("Helvetica-Bold", 6.8)
@@ -493,6 +494,18 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
     c.line(x, y + 2 * h_th, x + w, y + 2 * h_th)
     c.setDash()
 
+    c.setFont("Helvetica", 4.5)
+    c.setFillColor(colors.HexColor("#BDC3C7"))
+    c.drawString(x + 2, y + 3 * h_th - 5, "4")
+    c.drawString(x + w_th + 2, y + 3 * h_th - 5, "3")
+    c.drawString(x + 2 * w_th + 2, y + 3 * h_th - 5, "2")
+    c.drawString(x + 2, y + 2 * h_th - 5, "9")
+    c.drawString(x + w_th + 2, y + 2 * h_th - 5, "8")
+    c.drawString(x + 2 * w_th + 2, y + 2 * h_th - 5, "7")
+    c.drawString(x + 2, y + h_th - 5, "5")
+    c.drawString(x + w_th + 2, y + h_th - 5, "6")
+    c.drawString(x + 2 * w_th + 2, y + h_th - 5, "1")
+
     counts = defaultdict(int)
     for _, _, ez, _ in serves_list:
         if ez: counts[ez] += 1
@@ -510,7 +523,7 @@ def draw_serve_box_with_player(c, x, y, w, h, serves_list, players_dict):
             c.drawCentredString(zx, zy - 2.2, str(cnt))
 
 # ==========================================================
-# GENERATORE PDF (PAGINE 1, 2 E LA NUOVA PAGINA 3 PRE-GARA)
+# GENERATORE PDF CON BENCHMARK B1
 # ==========================================================
 def generate_pdf(data, set_label="Gara", is_pre_gara=False):
     buf = io.BytesIO()
@@ -526,7 +539,7 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20, height - 20, f"STUDIO TATTICO: {data['teams']['opp']} ({set_label})")
     c.setFont("Helvetica", 8)
-    c.drawString(20, height - 30, "Campo con Sottozone 1-9  |  Relazione Base C -> Spinta Alzata  |  Target Tattici")
+    c.drawString(20, height - 30, "Campo Sottozone 1-9  |  Relazione Base C -> Spinta Alzata  |  KPI Modello Prestazione B1")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#27AE60"))
@@ -721,6 +734,7 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         c.rect(cp_bar_x, c_y - 37, max(2, cp_bar_max * (h_cp / 100.0)), 4, fill=1, stroke=0)
 
     c.setFont("Helvetica-Bold", 6.6)
+    c.setFillColor(colors.HexColor("#1A252F"))
     c.drawString(px + 10, c_y - 48, "BREAK POINT:")
     c.setFont("Helvetica", 6.6)
     c.drawString(px + 68, c_y - 48, f"Bus {h_bp:.0f}%  vs  Avv {o_bp:.0f}%")
@@ -730,8 +744,8 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
 
     c_y = c_y - card_err_h - 4
 
-    # 3. Focus Busnago
-    card_busnago_h = 108
+    # 3. Focus Busnago (CON KPI BENCHMARK B1)
+    card_busnago_h = 114
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#1B4F72"))
     c.rect(px + 6, c_y - card_busnago_h, pw - 12, card_busnago_h, fill=1, stroke=1)
@@ -739,67 +753,62 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
     c.rect(px + 6, c_y - 14, pw - 12, 14, fill=1, stroke=0)
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 7.2)
-    c.drawString(px + 10, c_y - 10, "FOCUS BUSNAGO (NOSTRA SQUADRA)")
-    c.setFont("Helvetica-Bold", 6.6)
-    c.setFillColor(colors.HexColor("#2C3E50"))
-    c.drawString(px + 10, c_y - 23, "RICEZIONE INDIVIDUALE (min. 5 ric):")
-    c.setFont("Helvetica-Bold", 6.0)
-    c.setFillColor(colors.HexColor("#7F8C8D"))
-    c.drawString(px + 10, c_y - 32, "#  Nome         Tot    #+ %     Err %")
-    c.setStrokeColor(colors.HexColor("#BDC3C7"))
-    c.line(px + 10, c_y - 34, px + pw - 12, c_y - 34)
+    c.drawString(px + 10, c_y - 10, "BUSNAGO: TARGET B1 vs REALE")
 
-    rec_qual_list = []
-    for num, st_r in data["home_reception"].items():
-        if st_r["tot"] >= 5:
-            rec_qual_list.append((num, st_r["tot"], ((st_r["#"] + st_r["+"]) / st_r["tot"]) * 100, (st_r["="] / st_r["tot"]) * 100))
-    rec_qual_list.sort(key=lambda x: x[2])
+    # Calcolo indicatori Busnago per benchmark B1
+    tot_h_srv = sum(data["home_srv"][p]["tot"] for p in data["home_srv"])
+    ace_h_pct = (sp["home"]["serve"] / tot_h_srv * 100) if tot_h_srv > 0 else 0
+    err_srv_h_pct = (err_srv / tot_h_srv * 100) if tot_h_srv > 0 else 0
 
-    sub_y = c_y - 43
-    if rec_qual_list:
-        for r in rec_qual_list[:3]:
-            pname = data["home_players"].get(r[0], {}).get("name", "")[:9]
-            c.setFont("Helvetica", 6.4)
-            c.setFillColor(colors.HexColor("#C0392B") if r[3] >= 15 else colors.HexColor("#2C3E50"))
-            c.drawString(px + 10, sub_y, f"#{r[0]} {pname:<10} {r[1]:<4} {r[2]:.0f}%     {r[3]:.0f}%")
-            sub_y -= 9.0
-    else:
-        c.setFont("Helvetica-Oblique", 6.2)
-        c.setFillColor(colors.HexColor("#7F8C8D"))
-        c.drawString(px + 10, sub_y, "Nessun dato")
-        sub_y -= 9.0
+    tot_h_rec = sum(data["home_reception"][p]["tot"] for p in data["home_reception"])
+    pos_h_rec = sum(data["home_reception"][p]["#"] + data["home_reception"][p]["+"] for p in data["home_reception"])
+    err_h_rec = sum(data["home_reception"][p]["="] for p in data["home_reception"])
+    pos_rec_pct = (pos_h_rec / tot_h_rec * 100) if tot_h_rec > 0 else 0
+    err_rec_pct = (err_h_rec / tot_h_rec * 100) if tot_h_rec > 0 else 0
 
+    tot_h_att = sum(data["home_attack"][p]["tot"] for p in data["home_attack"])
+    kill_tot_att = sp["home"]["attack"]
+    kill_tot_pct = (kill_tot_att / tot_h_att * 100) if tot_h_att > 0 else 0
+
+    # Riquadro compatto KPI
+    kpi_y = c_y - 24
+    c.setFont("Helvetica", 6.5)
+    c.setFillColor(colors.black)
+
+    def draw_kpi_line(label, val, target_val, is_higher_better=True):
+        nonlocal kpi_y
+        passed = (val >= target_val) if is_higher_better else (val <= target_val)
+        sym = "▲" if passed else "▼"
+        sym_col = colors.HexColor("#27AE60") if passed else colors.HexColor("#C0392B")
+        
+        c.setFont("Helvetica", 6.5)
+        c.setFillColor(colors.black)
+        c.drawString(px + 10, kpi_y, f"{label}:")
+        c.setFont("Helvetica-Bold", 6.5)
+        c.drawString(px + 86, kpi_y, f"{val:.0f}% (Target: {'>=' if is_higher_better else '<='}{target_val:.0f}%)")
+        c.setFillColor(sym_col)
+        c.drawString(px + pw - 20, kpi_y, sym)
+        kpi_y -= 9.5
+
+    draw_kpi_line("Attacco CP (Kill)", h_cp, BENCHMARK_B1["att_cp"]["kill_min"], True)
+    draw_kpi_line("Attacco Tot (Kill)", kill_tot_pct, BENCHMARK_B1["att_tot"]["kill_min"], True)
+    draw_kpi_line("Ricezione Pos (#+)", pos_rec_pct, BENCHMARK_B1["reception"]["pos_min"], True)
+    draw_kpi_line("Ricezione Err (=)", err_rec_pct, BENCHMARK_B1["reception"]["err_max"], False)
+    draw_kpi_line("Battuta Ace (#)", ace_h_pct, BENCHMARK_B1["serve"]["ace_min"], True)
+    draw_kpi_line("Battuta Err (=)", err_srv_h_pct, BENCHMARK_B1["serve"]["err_max"], False)
+
+    # Nota sintetica in basso
     c.setStrokeColor(colors.HexColor("#ECEFF1"))
-    c.line(px + 10, sub_y + 2, px + pw - 12, sub_y + 2)
-    sub_y -= 6
-
-    h_att_list = []
-    for num, st_a in data["home_attack"].items():
-        if st_a["tot"] > 0:
-            h_att_list.append((num, st_a["tot"], st_a["#"], ((st_a["#"] - st_a["="] - st_a["/"]) / st_a["tot"]) * 100))
-    h_att_list.sort(key=lambda x: x[1], reverse=True)
-    top_vol_h = h_att_list[0] if h_att_list else None
-    top_eff_h = sorted(h_att_list, key=lambda x: x[3], reverse=True)[0] if h_att_list else None
-
-    c.setFont("Helvetica", 6.6)
-    if top_vol_h:
-        c.setFillColor(colors.HexColor("#D35400"))
-        c.circle(px + 13, sub_y + 2.5, 2.2, fill=1, stroke=0)
-        p_name = data["home_players"].get(top_vol_h[0], {}).get("name", "")[:9]
-        c.setFillColor(colors.black)
-        c.drawString(px + 19, sub_y, f"Più servito: #{top_vol_h[0]} {p_name} ({top_vol_h[1]} pal)")
-        sub_y -= 9.0
-    if top_eff_h:
-        c.setFillColor(colors.HexColor("#27AE60"))
-        c.circle(px + 13, sub_y + 2.5, 2.2, fill=1, stroke=0)
-        p_name = data["home_players"].get(top_eff_h[0], {}).get("name", "")[:9]
-        c.setFillColor(colors.black)
-        c.drawString(px + 19, sub_y, f"Più efficace: #{top_eff_h[0]} {p_name} ({top_eff_h[3]:.0f}% Eff)")
+    c.line(px + 10, kpi_y + 2, px + pw - 12, kpi_y + 2)
+    kpi_y -= 7
+    c.setFont("Helvetica-Bold", 6.4)
+    c.setFillColor(colors.HexColor("#1B4F72"))
+    c.drawString(px + 10, kpi_y, "▲ = In linea con standard B1   ▼ = Sotto soglia")
 
     c_y = c_y - card_busnago_h - 4
 
     # 4. Target Avversari
-    card_opp_h = 98
+    card_opp_h = 92
     c.setFillColor(colors.white)
     c.setStrokeColor(colors.HexColor("#D35400"))
     c.rect(px + 6, c_y - card_opp_h, pw - 12, card_opp_h, fill=1, stroke=1)
@@ -895,7 +904,7 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
     c.showPage()
 
     # ----------------------------------------------------
-    # PAGINA 2: FOCUS ATTACCANTI AVVERSARI (TRAIETTORIE INDIVIDUALI)
+    # PAGINA 2: FOCUS ATTACCANTI AVVERSARI (TRAIETTORIE)
     # ----------------------------------------------------
     c.setFillColor(colors.HexColor("#1A252F"))
     c.rect(0, height - 34, width, 34, fill=1, stroke=0)
@@ -994,19 +1003,13 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         c.setFont("Helvetica", 8)
         c.drawString(20, height - 30, "1. Mappa Battuta  |  2. Palleggiatore su Ricezione  |  3. Money Time (20-25)  |  4. CP vs BP  |  5. Tipologia Colpi")
 
-        col1_w = 260
-        col2_w = 260
-        col3_w = 250
-        box_y = height - 280
-        box_h = 240
+        col1_w, col2_w, col3_w = 260, 260, 250
+        box_y, box_h = height - 280, 240
 
-        # ====================================================
-        # 1. MAPPA BATTUTE AVVERSARIE
-        # ====================================================
+        # 1. MAPPA BATTUTE
         c.setFillColor(colors.white)
         c.setStrokeColor(colors.HexColor("#BDC3C7"))
         c.rect(20, box_y, col1_w, box_h, fill=1, stroke=1)
-        
         c.setFillColor(colors.HexColor("#2C3E50"))
         c.rect(20, box_y + box_h - 18, col1_w, 18, fill=1, stroke=0)
         c.setFillColor(colors.white)
@@ -1035,13 +1038,10 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
                 c.drawString(26, s_y, f"#{p_num} {p_name:<8} {s_info['tot']:<3}  {type_label:<5} {ace_pct:>3.0f}%  {err_pct:>3.0f}%  {top_traj}")
                 s_y -= 11
 
-        # ====================================================
         # 2. PALLEGGIATORE: PALLA IN MANO (#/+) vs SCONTATA (-/!)
-        # ====================================================
         c.setFillColor(colors.white)
         c.setStrokeColor(colors.HexColor("#BDC3C7"))
         c.rect(290, box_y, col2_w, box_h, fill=1, stroke=1)
-        
         c.setFillColor(colors.HexColor("#2C3E50"))
         c.rect(290, box_y + box_h - 18, col2_w, 18, fill=1, stroke=0)
         c.setFillColor(colors.white)
@@ -1051,7 +1051,6 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         sr = data["setter_on_rec"]
         p_y = box_y + box_h - 32
         
-        # Palla in mano (# / +)
         c.setFont("Helvetica-Bold", 7.2)
         c.setFillColor(colors.HexColor("#27AE60"))
         c.drawString(296, p_y, f"CON PALLA IN MANO (# / +) - {sr['tot_pos']} palloni:")
@@ -1072,7 +1071,6 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         c.setStrokeColor(colors.HexColor("#EAEDED"))
         c.line(296, p_y + 4, 290 + col2_w - 6, p_y + 4)
 
-        # Palla staccata / negativa (- / !)
         c.setFont("Helvetica-Bold", 7.2)
         c.setFillColor(colors.HexColor("#C0392B"))
         c.drawString(296, p_y - 4, f"SU PALLA SCONTATA / STACCATA (- / !) - {sr['tot_neg']} pal:")
@@ -1089,13 +1087,10 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
                 c.rect(385, p_y + 1, max(2, 120 * (pct / 100)), 4, fill=1, stroke=0)
                 p_y -= 11
 
-        # ====================================================
         # 3. MONEY TIME (PUNTI DECISIVI 20-25)
-        # ====================================================
         c.setFillColor(colors.white)
         c.setStrokeColor(colors.HexColor("#BDC3C7"))
         c.rect(560, box_y, col3_w, box_h, fill=1, stroke=1)
-        
         c.setFillColor(colors.HexColor("#8E44AD"))
         c.rect(560, box_y + box_h - 18, col3_w, 18, fill=1, stroke=0)
         c.setFillColor(colors.white)
@@ -1121,19 +1116,15 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         else:
             c.setFont("Helvetica-Oblique", 6.5)
             c.setFillColor(colors.HexColor("#7F8C8D"))
-            c.drawString(566, m_y, "Nessun attacco registrato oltre quota 20")
+            c.drawString(566, m_y, "Nessun attacco oltre quota 20")
 
-        # ====================================================
-        # RIGA INFERIORE: 4. CP vs BP  &  5. TIPOLOGIA DI COLPO
-        # ====================================================
-        b_box_y = height - 505
-        b_box_h = 215
+        # Riga inferiore
+        b_box_y, b_box_h = height - 505, 215
 
         # 4. FASI DI GIOCO: CP vs CONTRATTACCO
         c.setFillColor(colors.white)
         c.setStrokeColor(colors.HexColor("#BDC3C7"))
         c.rect(20, b_box_y, 380, b_box_h, fill=1, stroke=1)
-        
         c.setFillColor(colors.HexColor("#16A085"))
         c.rect(20, b_box_y + b_box_h - 18, 380, 18, fill=1, stroke=0)
         c.setFillColor(colors.white)
@@ -1142,7 +1133,6 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
 
         cp_y = b_box_y + b_box_h - 32
         tot_cp, tot_bp = data["phase_att"]["tot_cp"], data["phase_att"]["tot_bp"]
-        
         c.setFont("Helvetica-Bold", 7.0)
         c.setFillColor(colors.HexColor("#2C3E50"))
         c.drawString(26, cp_y, f"CAMBIO PALLA (su loro ricezione - {tot_cp} pal):")
@@ -1181,7 +1171,6 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
         c.setFillColor(colors.white)
         c.setStrokeColor(colors.HexColor("#BDC3C7"))
         c.rect(410, b_box_y, 400, b_box_h, fill=1, stroke=1)
-        
         c.setFillColor(colors.HexColor("#D35400"))
         c.rect(410, b_box_y + b_box_h - 18, 400, 18, fill=1, stroke=0)
         c.setFillColor(colors.white)
@@ -1202,7 +1191,6 @@ def generate_pdf(data, set_label="Gara", is_pre_gara=False):
                 hard_pct = (sh_info["hard"] / sh_info["tot"] * 100)
                 tip_pct = (sh_info["tip"] / sh_info["tot"] * 100)
                 tend = "⚠️ Abusa Pallonetto" if tip_pct >= 30 else "Picchia Forte"
-                
                 c.setFont("Helvetica", 6.8)
                 c.setFillColor(colors.HexColor("#C0392B") if tip_pct >= 30 else colors.black)
                 c.drawString(416, sh_y, f"#{p_num} {p_name:<8} {sh_info['tot']:<4}  {hard_pct:>5.0f}%          {tip_pct:>5.0f}%               {tend}")
@@ -1227,7 +1215,7 @@ def main():
 
     if modalita == "🔴 Live Match (Set per Set)":
         st.title("🏐 Scheda Tattica Grafica Live Click&Scout")
-        st.write("Aggiornamento fine set con memoria automatica del dossier pre-gara.")
+        st.write("Aggiornamento fine set con confronto KPI Modello di Prestazione B1.")
 
         if "saved_pre_pdf_bytes" not in st.session_state:
             st.session_state["saved_pre_pdf_bytes"] = None
@@ -1278,6 +1266,31 @@ def main():
                 return
                 
             st.success(f"Dati elaborati: **{scout_data['teams']['opp']}** vs **{scout_data['teams']['home']}**")
+
+            # ==========================================================
+            # SEZIONE KPI VIDEO STREAMLIT: MODELLO PRESTAZIONE B1
+            # ==========================================================
+            st.markdown("### 🎯 Benchmark Busnago B1 2026-27 vs Rendimento Reale")
+            ps = scout_data["phase_stats"]["home"]
+            h_cp_val = (ps["cp_kill"] / ps["cp_tot"] * 100) if ps["cp_tot"] > 0 else 0
+            
+            tot_h_att = sum(scout_data["home_attack"][p]["tot"] for p in scout_data["home_attack"])
+            kill_tot_val = (scout_data["skill_points"]["home"]["attack"] / tot_h_att * 100) if tot_h_att > 0 else 0
+
+            tot_h_rec = sum(scout_data["home_reception"][p]["tot"] for p in scout_data["home_reception"])
+            pos_rec_val = (sum(scout_data["home_reception"][p]["#"] + scout_data["home_reception"][p]["+"] for p in scout_data["home_reception"]) / tot_h_rec * 100) if tot_h_rec > 0 else 0
+            err_rec_val = (sum(scout_data["home_reception"][p]["="] for p in scout_data["home_reception"]) / tot_h_rec * 100) if tot_h_rec > 0 else 0
+
+            tot_h_srv = sum(scout_data["home_srv"][p]["tot"] for p in scout_data["home_srv"])
+            ace_srv_val = (scout_data["skill_points"]["home"]["serve"] / tot_h_srv * 100) if tot_h_srv > 0 else 0
+            err_srv_val = (scout_data["home_errors"]["serve"] / tot_h_srv * 100) if tot_h_srv > 0 else 0
+
+            c_k1, c_k2, c_k3, c_k4 = st.columns(4)
+            c_k1.metric("Attacco CP (Kill)", f"{h_cp_val:.0f}%", f"Target: ≥{BENCHMARK_B1['att_cp']['kill_min']:.0f}%", delta_color="normal")
+            c_k2.metric("Attacco Totale", f"{kill_tot_val:.0f}%", f"Target: ≥{BENCHMARK_B1['att_tot']['kill_min']:.0f}%", delta_color="normal")
+            c_k3.metric("Ricezione Pos (#+)", f"{pos_rec_val:.0f}%", f"Target: ≥{BENCHMARK_B1['reception']['pos_min']:.0f}%", delta_color="normal")
+            c_k4.metric("Errori Battuta", f"{err_srv_val:.0f}%", f"Target: ≤{BENCHMARK_B1['serve']['err_max']:.0f}%", delta_color="inverse")
+
             live_pdf_buf = generate_pdf(scout_data, set_label=set_choice, is_pre_gara=False)
 
             if st.session_state["saved_pre_pdf_bytes"] is not None:
