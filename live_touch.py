@@ -35,7 +35,6 @@ ROTATION_LINEUPS = {
     2: {"type": 2, "label": "Attacco a 2"},
 }
 
-# Coordinate campo corrette secondo la reale prospettiva di gioco
 COORDS_MAP = {
     "4": (0.83, 0.55), "3": (0.50, 0.55), "2": (0.17, 0.55),
     "7": (0.83, 0.70), "8": (0.50, 0.70), "9": (0.17, 0.70),
@@ -105,7 +104,6 @@ if "roster_df_opp" not in st.session_state:
         {"Numero": "12", "Ruolo": "L"}
     ])
 
-# Inizializzazione protetta del contenitore dati
 if "match_data" not in st.session_state or not isinstance(st.session_state["match_data"], dict):
     st.session_state["match_data"] = {}
 
@@ -166,14 +164,44 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS AD ALTO CONTRASTO PER TOUCH TABLET
+# STILE CSS: PULSANTI QUADRATI E CAMPO CON BORDI RIGIDI
 # ==========================================================
 st.markdown("""
 <style>
-    .stButton>button {
-        font-weight: 700;
-        border-radius: 6px;
-        padding: 8px 4px;
+    /* Campo da pallavolo con perimetro esterno marcato */
+    .volleyball-court-wrapper {
+        border: 3.5px solid #000000;
+        border-radius: 4px;
+        background-color: #FFFFFF;
+        padding: 6px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        max-width: 320px;
+        margin: 0 auto;
+    }
+    
+    /* Forza i bottoni delle zone a essere QUADRATI e con numero piccolo */
+    div[data-testid="column"] button {
+        aspect-ratio: 1 / 1 !important;
+        height: auto !important;
+        min-height: 44px !important;
+        font-size: 0.85rem !important;
+        font-weight: 800 !important;
+        padding: 0px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 4px !important;
+        border: 1px dashed #94A3B8 !important;
+    }
+    
+    .net-separator {
+        border-top: 5px solid #000000;
+        margin: 6px 0px;
+        position: relative;
+    }
+    .three-meter-line {
+        border-top: 1.5px dashed #EF4444;
+        margin: 3px 0px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -313,7 +341,7 @@ with tab_scout:
             ["4", "3", "2", "7", "8", "9", "5", "6", "1"]
         )):
             cnt_s = m_data["rotations"][cur_rot]["serve_targets"][zn]
-            if col.button(f"Z{zn} ({cnt_s})", key=f"srv_btn_{zn}", use_container_width=True):
+            if col.button(f"{zn} ({cnt_s})", key=f"srv_btn_{zn}", use_container_width=True):
                 m_data["rotations"][cur_rot]["serve_targets"][zn] += 1
                 st.session_state["history"].append({"type": "opp_serve", "rot": cur_rot, "key": zn})
                 st.rerun()
@@ -366,20 +394,20 @@ with tab_scout:
         st.markdown("---")
         st.write("🔥 **Money Time (20-25) Uscita Alzatore:**")
         mt_cols = st.columns(3)
-        if mt_cols[0].button("Z4", key="mt_4", use_container_width=True):
+        if mt_cols[0].button("4", key="mt_4", use_container_width=True):
             m_data["money_time"]["4"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "4"})
             st.rerun()
-        if mt_cols[1].button("Z3", key="mt_3", use_container_width=True):
+        if mt_cols[1].button("3", key="mt_3", use_container_width=True):
             m_data["money_time"]["3"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "3"})
             st.rerun()
-        if mt_cols[2].button("Z2", key="mt_2", use_container_width=True):
+        if mt_cols[2].button("2", key="mt_2", use_container_width=True):
             m_data["money_time"]["2"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
 
-    # 3. CAMPO INTERO VERTICALE TOUCH (DISPOSIZIONE CORRETTA)
+    # 3. CAMPO INTERO VERTICALE TOUCH CON QUADRATI E BORDI REALI
     with c_p3:
         st.subheader("3️⃣ Campo Unificato: Traiettoria")
         
@@ -391,76 +419,72 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
-        # Metà Campo Attacco (Partenza)
-        st.markdown("""
-        <div style="background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 8px 8px 0px 0px; padding: 4px; text-align: center; font-size: 0.75rem; font-weight: bold; color: #475569;">
-            METÀ CAMPO ATTACCO (PARTENZA)
-        </div>
-        """, unsafe_allow_html=True)
+        # CAMPO GRAFICO RACCHIUSO DA BORDI ESTERNI
+        st.markdown('<div class="volleyball-court-wrapper">', unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; font-size: 0.68rem; font-weight: 800; color: #475569; margin-bottom: 2px;'>ATTACCO (PARTENZA)</div>", unsafe_allow_html=True)
 
         # Riga 1 (Fondo campo attacco): 1, 6, 5
         row_o1 = st.columns(3)
-        for col, zn, label in zip(row_o1, ["1", "6", "5"], ["Z1 (Dx)", "Z6 (C)", "Z5 (Sx)"]):
+        for col, zn in zip(row_o1, ["1", "6", "5"]):
             b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_start_z"] = zn
                 st.rerun()
 
+        # Linea tratteggiata 3 metri attacco
+        st.markdown('<div class="three-meter-line"></div>', unsafe_allow_html=True)
+
         # Riga 2 (Seconda linea / Pipe): 9, 8, 7
         row_o2 = st.columns(3)
-        for col, zn, label in zip(row_o2, ["9", "8", "7"], ["Z9", "Z8 (Pipe)", "Z7"]):
+        for col, zn in zip(row_o2, ["9", "8", "7"]):
             b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_start_z"] = zn
                 st.rerun()
 
         # Riga 3 (Sotto rete attacco): 2, 3, 4 (Posto 4 in basso a destra dell'area d'attacco)
         row_o3 = st.columns(3)
-        for col, zn, label in zip(row_o3, ["2", "3", "4"], ["Z2", "Z3", "Z4"]):
+        for col, zn in zip(row_o3, ["2", "3", "4"]):
             b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_start_z"] = zn
                 st.rerun()
 
         # Rete Centrale Marcata
-        st.markdown("""
-        <div style="margin: 6px 0px; text-align: center; border-top: 4px solid #000000; border-bottom: 2px solid #000000; padding: 2px 0px; background-color: #CBD5E1; font-size: 0.75rem; font-weight: bold; color: #0F172A;">
-            ━━━━━━ RETE CENTRALE ━━━━━━
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="net-separator"></div>', unsafe_allow_html=True)
 
         # Metà Campo Difesa (Arrivo)
-        # Riga 1 (Sotto rete difesa): D4, D3, D2
+        # Riga 1 (Sotto rete difesa): 4, 3, 2
         row_d1 = st.columns(3)
-        for col, zn, label in zip(row_d1, ["4", "3", "2"], ["D4", "D3", "D2"]):
+        for col, zn in zip(row_d1, ["4", "3", "2"]):
             b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_end_z"] = zn
                 st.rerun()
 
-        # Riga 2 (Centro campo difesa): D7, D8, D9
+        # Riga 2 (Centro campo difesa): 7, 8, 9
         row_d2 = st.columns(3)
-        for col, zn, label in zip(row_d2, ["7", "8", "9"], ["D7", "D8", "D9"]):
+        for col, zn in zip(row_d2, ["7", "8", "9"]):
             b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_end_z"] = zn
                 st.rerun()
 
-        # Riga 3 (Fondo campo difesa): D5, D6, D1
+        # Linea tratteggiata 3 metri difesa
+        st.markdown('<div class="three-meter-line"></div>', unsafe_allow_html=True)
+
+        # Riga 3 (Fondo campo difesa): 5, 6, 1
         row_d3 = st.columns(3)
-        for col, zn, label in zip(row_d3, ["5", "6", "1"], ["D5", "D6", "D1"]):
+        for col, zn in zip(row_d3, ["5", "6", "1"]):
             b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
+            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_end_z"] = zn
                 st.rerun()
 
-        st.markdown("""
-        <div style="background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 0px 0px 8px 8px; padding: 4px; text-align: center; font-size: 0.75rem; font-weight: bold; color: #475569;">
-            METÀ CAMPO DIFESA (ARRIVO)
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; font-size: 0.68rem; font-weight: 800; color: #475569; margin-top: 2px;'>DIFESA (ARRIVO)</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown(f"**Registra Esito Traiettoria ({target_team}: Z{st.session_state['selected_start_z']} ➔ D{st.session_state['selected_end_z']}):**")
+        st.markdown(f"**Esito Traiettoria ({target_team}: {st.session_state['selected_start_z']} ➔ {st.session_state['selected_end_z']}):**")
         es1, es2, es3 = st.columns(3)
         
         if es1.button("🟢 PUNTO (#)", key="att_btn_kill", use_container_width=True):
@@ -476,7 +500,7 @@ with tab_scout:
                 st.session_state["history"].append({"type": "busnago_attack", "rot": cur_rot})
             st.rerun()
 
-        if es2.button("🟡 IN GIOCO (!)", key="att_btn_in", use_container_width=True):
+        if es2.button("🟡 GIOCO (!)", key="att_btn_in", use_container_width=True):
             entry = (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "!")
             if target_team == "Avversario":
                 m_data["rotations"][cur_rot]["attacks"].append(entry)
@@ -573,7 +597,6 @@ def render_court_plot_with_corner_labels(attacks_list):
     for y_val in [0.17, 0.83]:
         ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
 
-    # Numeri piccoli nell'angolo con orientamento naturale
     corner_labels = {
         (0.02, 0.95): "1", (0.35, 0.95): "6", (0.68, 0.95): "5",
         (0.02, 0.78): "9", (0.35, 0.78): "8", (0.68, 0.78): "7",
@@ -633,7 +656,7 @@ with tab_coach:
     tot_bp_b = st_b["bp_kill"] + st_b["bp_in"] + st_b["bp_err"]
     tot_bp_o = st_o["bp_kill"] + st_o["bp_in"] + st_o["bp_err"]
     bp_kill_b = (st_b["bp_kill"] / tot_bp_b * 100) if tot_bp_b > 0 else 0
-    bp_kill_o = (st_o["bp_kill"] / tot_bp_o * 100) if tot_bp_b > 0 else 0
+    bp_kill_o = (st_o["bp_kill"] / tot_bp_o * 100) if tot_bp_o > 0 else 0
     bp_err_b = (st_b["bp_err"] / tot_bp_b * 100) if tot_bp_b > 0 else 0
     bp_err_o = (st_o["bp_err"] / tot_bp_o * 100) if tot_bp_o > 0 else 0
 
