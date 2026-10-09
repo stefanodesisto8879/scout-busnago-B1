@@ -36,9 +36,9 @@ ROTATION_LINEUPS = {
 }
 
 COORDS_MAP = {
-    "4": (0.83, 0.55), "3": (0.50, 0.55), "2": (0.17, 0.55),
-    "7": (0.83, 0.70), "8": (0.50, 0.70), "9": (0.17, 0.70),
-    "5": (0.83, 0.88), "6": (0.50, 0.88), "1": (0.17, 0.88),
+    "4": (0.17, 0.55), "3": (0.50, 0.55), "2": (0.83, 0.55),
+    "7": (0.17, 0.70), "8": (0.50, 0.70), "9": (0.83, 0.70),
+    "5": (0.17, 0.88), "6": (0.50, 0.88), "1": (0.83, 0.88),
     "def_4": (0.17, 0.45), "def_3": (0.50, 0.45), "def_2": (0.83, 0.45),
     "def_7": (0.17, 0.30), "def_8": (0.50, 0.30), "def_9": (0.83, 0.30),
     "def_5": (0.17, 0.12), "def_6": (0.50, 0.12), "def_1": (0.83, 0.12),
@@ -163,101 +163,14 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS: CAMPO DI PALLAVOLO A RETICOLO INTEGRATO (ESATTO)
+# STILE CSS PULITO (BOTTONI RETTANGOLARI TOUCH TABLET)
 # ==========================================================
 st.markdown("""
 <style>
-    /* Contenitore Campo da Pallavolo Regolamentare */
-    .court-board {
-        width: 100%;
-        max-width: 320px;
-        margin: 0 auto;
-        border: 3px solid #1E293B;
-        background-color: #FFFFFF;
-        box-sizing: border-box;
-    }
-    
-    /* Righe del campo senza margini Streamlit */
-    div[data-testid="column"] {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    
-    /* Rete spessa continua */
-    .net-divider {
-        border-top: 4.5px solid #000000;
-        margin: 0;
-        width: 100%;
-    }
-    
-    /* Linee 3 metri continue */
-    .line-3m {
-        border-top: 2px solid #1E293B;
-        margin: 0;
-        width: 100%;
-    }
-    
-    /* Linee tratteggiate orizzontali */
-    .dash-h {
-        border-top: 1.5px dashed #94A3B8;
-        margin: 0;
-        width: 100%;
-    }
-
-    /* Singolo Quadrante del campo */
-    .quad-cell {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        box-sizing: border-box;
-        border-right: 1.5px dashed #94A3B8;
-    }
-    .quad-cell.last-col {
-        border-right: none;
-    }
-    
-    /* Numero nell'angolino superiore sinistro */
-    .quad-num {
-        position: absolute;
-        top: 3px;
-        left: 5px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: #475569;
-        pointer-events: none;
-        z-index: 2;
-    }
-
-    /* Bottone invisibile che riempie il 100% del quadrante */
-    .quad-cell button {
-        width: 100% !important;
-        height: 100% !important;
-        border-radius: 0px !important;
-        border: none !important;
-        background: transparent !important;
-        color: transparent !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        box-shadow: none !important;
-    }
-    
-    .quad-cell button:hover {
-        background-color: rgba(59, 130, 246, 0.1) !important;
-    }
-
-    /* Colore evidenziazione selezione attiva */
-    .quad-cell.selected-start {
-        background-color: #EF4444 !important;
-    }
-    .quad-cell.selected-start .quad-num {
-        color: #FFFFFF !important;
-    }
-    
-    .quad-cell.selected-end {
-        background-color: #3B82F6 !important;
-    }
-    .quad-cell.selected-end .quad-num {
-        color: #FFFFFF !important;
+    .stButton>button {
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        padding: 10px 4px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -397,7 +310,7 @@ with tab_scout:
             ["4", "3", "2", "7", "8", "9", "5", "6", "1"]
         )):
             cnt_s = m_data["rotations"][cur_rot]["serve_targets"][zn]
-            if col.button(f"{zn} ({cnt_s})", key=f"srv_btn_{zn}", use_container_width=True):
+            if col.button(f"Z{zn} ({cnt_s})", key=f"srv_btn_{zn}", use_container_width=True):
                 m_data["rotations"][cur_rot]["serve_targets"][zn] += 1
                 st.session_state["history"].append({"type": "opp_serve", "rot": cur_rot, "key": zn})
                 st.rerun()
@@ -463,9 +376,9 @@ with tab_scout:
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
 
-    # 3. CAMPO INTERO VERTICALE A QUADRATI COME NELL'IMMAGINE
+    # 3. DIREZIONE ATTACCO CON BOTTONI RETTANGOLARI PULITI
     with c_p3:
-        st.subheader("3️⃣ Traiettoria Attacco")
+        st.subheader("3️⃣ Direzione Attacco")
         
         target_team = st.radio(
             "Squadra in Attacco:",
@@ -475,81 +388,53 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
-        # Funzione render per ogni singolo quadrante del campo
-        def draw_field_square(col, num_label, key_suffix, is_last_col=False, select_mode="start"):
-            is_active = (st.session_state["selected_start_z"] == num_label) if select_mode == "start" else (st.session_state["selected_end_z"] == num_label)
-            cls_select = "selected-start" if (is_active and select_mode == "start") else ("selected-end" if (is_active and select_mode == "end") else "")
-            cls_border = "last-col" if is_last_col else ""
-            
-            with col:
-                st.markdown(f"""
-                <div class="quad-cell {cls_border} {cls_select}">
-                    <div class="quad-num">{num_label}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button(" ", key=f"fsq_{select_mode}_{key_suffix}_{num_label}", use_container_width=True):
-                    if select_mode == "start":
-                        st.session_state["selected_start_z"] = num_label
-                    else:
-                        st.session_state["selected_end_z"] = num_label
-                    st.rerun()
+        # Selezione Partenza Attacco
+        st.markdown(f"**Partenza Attacco (Attivo: Posto {st.session_state['selected_start_z']}):**")
+        row_o1 = st.columns(3)
+        if row_o1[0].button("Posto 4", type="primary" if st.session_state["selected_start_z"] == "4" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "4"; st.rerun()
+        if row_o1[1].button("Posto 3 (C)", type="primary" if st.session_state["selected_start_z"] == "3" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "3"; st.rerun()
+        if row_o1[2].button("Posto 2", type="primary" if st.session_state["selected_start_z"] == "2" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "2"; st.rerun()
 
-        # CONTENITORE CAMPO UNIFICATO (STRUTTURA GRAFICA)
-        st.markdown('<div class="court-board">', unsafe_allow_html=True)
+        row_o2 = st.columns(3)
+        if row_o2[0].button("Pipe (Z8)", type="primary" if st.session_state["selected_start_z"] == "8" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "8"; st.rerun()
+        if row_o2[1].button("Zona 6", type="primary" if st.session_state["selected_start_z"] == "6" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "6"; st.rerun()
+        if row_o2[2].button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "1"; st.rerun()
 
-        # --- METÀ ATTACCO SUPERIORE ---
-        # Riga 1: 1, 6, 5
-        r_att1 = st.columns(3)
-        draw_field_square(r_att1[0], "1", "att", False, "start")
-        draw_field_square(r_att1[1], "6", "att", False, "start")
-        draw_field_square(r_att1[2], "5", "att", True, "start")
+        st.markdown("---")
 
-        st.markdown('<div class="dash-h"></div>', unsafe_allow_html=True)
+        # Selezione Arrivo Difesa
+        st.markdown(f"**Arrivo Difesa (Attivo: Zona {st.session_state['selected_end_z']}):**")
+        row_d1 = st.columns(3)
+        if row_d1[0].button("D4 (Rete)", type="primary" if st.session_state["selected_end_z"] == "4" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "4"; st.rerun()
+        if row_d1[1].button("D3 (Centro)", type="primary" if st.session_state["selected_end_z"] == "3" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "3"; st.rerun()
+        if row_d1[2].button("D2 (Rete)", type="primary" if st.session_state["selected_end_z"] == "2" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "2"; st.rerun()
 
-        # Riga 2: 9, 8, 7
-        r_att2 = st.columns(3)
-        draw_field_square(r_att2[0], "9", "att", False, "start")
-        draw_field_square(r_att2[1], "8", "att", False, "start")
-        draw_field_square(r_att2[2], "7", "att", True, "start")
+        row_d2 = st.columns(3)
+        if row_d2[0].button("D7", type="primary" if st.session_state["selected_end_z"] == "7" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "7"; st.rerun()
+        if row_d2[1].button("D8", type="primary" if st.session_state["selected_end_z"] == "8" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "8"; st.rerun()
+        if row_d2[2].button("D9", type="primary" if st.session_state["selected_end_z"] == "9" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "9"; st.rerun()
 
-        st.markdown('<div class="line-3m"></div>', unsafe_allow_html=True)
+        row_d3 = st.columns(3)
+        if row_d3[0].button("D5 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "5" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "5"; st.rerun()
+        if row_d3[1].button("D6 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "6" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "6"; st.rerun()
+        if row_d3[2].button("D1 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "1" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "1"; st.rerun()
 
-        # Riga 3 (Sotto rete): 2, 3, 4
-        r_att3 = st.columns(3)
-        draw_field_square(r_att3[0], "2", "att", False, "start")
-        draw_field_square(r_att3[1], "3", "att", False, "start")
-        draw_field_square(r_att3[2], "4", "att", True, "start")
-
-        # --- RETE CENTRALE MARCATA ---
-        st.markdown('<div class="net-divider"></div>', unsafe_allow_html=True)
-
-        # --- METÀ DIFESA INFERIORE ---
-        # Riga 1 (Sotto rete difesa): 4, 3, 2
-        r_def1 = st.columns(3)
-        draw_field_square(r_def1[0], "4", "def", False, "end")
-        draw_field_square(r_def1[1], "3", "def", False, "end")
-        draw_field_square(r_def1[2], "2", "def", True, "end")
-
-        st.markdown('<div class="line-3m"></div>', unsafe_allow_html=True)
-
-        # Riga 2: 7, 8, 9
-        r_def2 = st.columns(3)
-        draw_field_square(r_def2[0], "7", "def", False, "end")
-        draw_field_square(r_def2[1], "8", "def", False, "end")
-        draw_field_square(r_def2[2], "9", "def", True, "end")
-
-        st.markdown('<div class="dash-h"></div>', unsafe_allow_html=True)
-
-        # Riga 3: 5, 6, 1
-        r_def3 = st.columns(3)
-        draw_field_square(r_def3[0], "5", "def", False, "end")
-        draw_field_square(r_def3[1], "6", "def", False, "end")
-        draw_field_square(r_def3[2], "1", "def", True, "end")
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Pulsanti Esito sotto al campo
-        st.markdown(f"**Esito Traiettoria ({target_team}: {st.session_state['selected_start_z']} ➔ {st.session_state['selected_end_z']}):**")
+        st.markdown(f"**Registra Esito ({target_team}: Z{st.session_state['selected_start_z']} ➔ D{st.session_state['selected_end_z']}):**")
         es1, es2, es3 = st.columns(3)
         
         if es1.button("🟢 PUNTO (#)", key="att_btn_kill", use_container_width=True):
@@ -565,7 +450,7 @@ with tab_scout:
                 st.session_state["history"].append({"type": "busnago_attack", "rot": cur_rot})
             st.rerun()
 
-        if es2.button("🟡 GIOCO (!)", key="att_btn_in", use_container_width=True):
+        if es2.button("🟡 IN GIOCO (!)", key="att_btn_in", use_container_width=True):
             entry = (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "!")
             if target_team == "Avversario":
                 m_data["rotations"][cur_rot]["attacks"].append(entry)
@@ -578,7 +463,7 @@ with tab_scout:
                 st.session_state["history"].append({"type": "busnago_attack", "rot": cur_rot})
             st.rerun()
 
-        if es3.button("🔴 ERRORE (≠)", key="att_btn_err", use_container_width=True):
+        if es3.button("🔴 ERRORE (=)", key="att_btn_err", use_container_width=True):
             entry = (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "=")
             if target_team == "Avversario":
                 m_data["rotations"][cur_rot]["attacks"].append(entry)
@@ -662,7 +547,6 @@ def render_court_plot_with_corner_labels(attacks_list):
     for y_val in [0.17, 0.83]:
         ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
 
-    # Numeri piccoli nell'angolo con orientamento naturale
     corner_labels = {
         (0.02, 0.95): "1", (0.35, 0.95): "6", (0.68, 0.95): "5",
         (0.02, 0.78): "9", (0.35, 0.78): "8", (0.68, 0.78): "7",
