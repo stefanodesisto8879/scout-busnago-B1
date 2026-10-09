@@ -167,7 +167,6 @@ roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 # ==========================================================
 st.markdown("""
 <style>
-    /* Card per dividere nettamente le 4 sezioni */
     .section-card {
         background-color: #F8FAFC;
         border: 1.5px solid #CBD5E1;
@@ -177,7 +176,6 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
-    /* Header della sezione con bordo inferiore */
     .section-header {
         font-size: 1.05rem;
         font-weight: 800;
@@ -188,7 +186,6 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Pulsanti touch ordinati */
     .stButton>button {
         font-weight: 700 !important;
         border-radius: 6px !important;
@@ -260,9 +257,7 @@ rot_setup = ROTATION_LINEUPS[cur_rot]
 with tab_scout:
     c_p1, c_p2, c_p3, c_p4 = st.columns([3, 3, 3.8, 2.2])
 
-    # ----------------------------------------------------
-    # 1. BATTUTA & RICEZIONE (CARD CON BORDO)
-    # ----------------------------------------------------
+    # 1. BATTUTA & RICEZIONE
     with c_p1:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-header" style="color: #0284C7;">1️⃣ SERVIZIO & RICEZIONE</div>', unsafe_allow_html=True)
@@ -344,9 +339,7 @@ with tab_scout:
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # 2. BASI CENTRALE & COMBINAZIONI (CARD CON BORDO)
-    # ----------------------------------------------------
+    # 2. BASI CENTRALE
     with c_p2:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown(f'<div class="section-header" style="color: #D97706;">2️⃣ BASI CENTRALE P{cur_rot}</div>', unsafe_allow_html=True)
@@ -410,9 +403,7 @@ with tab_scout:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # 3. DIREZIONE ATTACCO CON LINEE DI DIVISIONE TRA LE ZONE
-    # ----------------------------------------------------
+    # 3. DIREZIONE ATTACCO CON SEPARAZIONE NETTA
     with c_p3:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-header" style="color: #059669;">3️⃣ DIREZIONE ATTACCO</div>', unsafe_allow_html=True)
@@ -445,7 +436,7 @@ with tab_scout:
         if row_o2[2].button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "1"; st.rerun()
 
-        # LINEA DI DIVISIONE NETTA TRA PARTENZA E ARRIVO
+        # Separatore visivo netto tra origine e destinazione
         st.markdown("<hr style='margin: 10px 0; border: none; border-top: 2px dashed #94A3B8;'>", unsafe_allow_html=True)
 
         # Selezione Arrivo Difesa
@@ -519,9 +510,7 @@ with tab_scout:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # 4. MURO & FASI BREAK POINT (CARD CON BORDO)
-    # ----------------------------------------------------
+    # 4. MURO & FASI BREAK POINT
     with c_p4:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-header" style="color: #7C3AED;">4️⃣ MURO & BP</div>', unsafe_allow_html=True)
@@ -578,38 +567,48 @@ with tab_scout:
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# FUNZIONE GRAFICA VETTORIALE CAMPO CON NUMERI NELL'ANGOLO
+# FUNZIONE GRAFICA VETTORIALE: CAMPO RETTANGOLARE REGOLAMENTARE (1:2)
 # ==========================================================
 def render_court_plot_with_corner_labels(attacks_list):
-    fig, ax = plt.subplots(figsize=(2.8, 4.0))
+    # Proporzioni campo regolamentari (larghezza: 9m, lunghezza: 18m -> rapporto 1:2)
+    fig, ax = plt.subplots(figsize=(2.4, 4.8))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
+    ax.set_aspect("equal")
     ax.axis("off")
 
-    rect = patches.Rectangle((0, 0), 1, 1, linewidth=1.5, edgecolor="black", facecolor="white")
+    # Bordo esterno rettangolare continuo
+    rect = patches.Rectangle((0, 0), 1, 1, linewidth=2.0, edgecolor="#1E293B", facecolor="#FFFFFF")
     ax.add_patch(rect)
 
-    # Rete
-    ax.plot([0, 1], [0.5, 0.5], color="black", linewidth=2.5)
-    ax.plot([0, 1], [0.67, 0.67], color="black", linewidth=1.0)
-    ax.plot([0, 1], [0.33, 0.33], color="black", linewidth=1.0)
+    # Rete centrale marcata
+    ax.plot([0, 1], [0.5, 0.5], color="#000000", linewidth=3.0)
 
-    for x_val in [0.33, 0.67]:
-        ax.plot([x_val, x_val], [0, 1], color="#BDC3C7", linestyle="--", linewidth=0.8)
-    for y_val in [0.17, 0.83]:
-        ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
+    # Linee dei 3 metri continue
+    ax.plot([0, 1], [0.666, 0.666], color="#1E293B", linewidth=1.4)
+    ax.plot([0, 1], [0.333, 0.333], color="#1E293B", linewidth=1.4)
 
+    # Linee interne tratteggiate verticali
+    for x_val in [0.333, 0.666]:
+        ax.plot([x_val, x_val], [0, 1], color="#94A3B8", linestyle="--", linewidth=0.9)
+
+    # Linee interne tratteggiate orizzontali (divisione fondo campo)
+    for y_val in [0.166, 0.833]:
+        ax.plot([0, 1], [y_val, y_val], color="#94A3B8", linestyle="--", linewidth=0.9)
+
+    # Numeri delle sottozone ancorati in alto a sinistra di ogni settore
     corner_labels = {
-        (0.02, 0.95): "1", (0.35, 0.95): "6", (0.68, 0.95): "5",
-        (0.02, 0.78): "9", (0.35, 0.78): "8", (0.68, 0.78): "7",
-        (0.02, 0.61): "2", (0.35, 0.61): "3", (0.68, 0.61): "4",
-        (0.02, 0.45): "4", (0.35, 0.45): "3", (0.68, 0.45): "2",
-        (0.02, 0.28): "7", (0.35, 0.28): "8", (0.68, 0.28): "9",
-        (0.02, 0.12): "5", (0.35, 0.12): "6", (0.68, 0.12): "1",
+        (0.02, 0.96): "1", (0.35, 0.96): "6", (0.68, 0.96): "5",
+        (0.02, 0.79): "9", (0.35, 0.79): "8", (0.68, 0.79): "7",
+        (0.02, 0.63): "2", (0.35, 0.63): "3", (0.68, 0.63): "4",
+        (0.02, 0.46): "4", (0.35, 0.46): "3", (0.68, 0.46): "2",
+        (0.02, 0.30): "7", (0.35, 0.30): "8", (0.68, 0.30): "9",
+        (0.02, 0.13): "5", (0.35, 0.13): "6", (0.68, 0.13): "1",
     }
     for (lx, ly), ltxt in corner_labels.items():
-        ax.text(lx, ly, ltxt, fontsize=5.5, color="#94A3B8", fontweight="bold")
+        ax.text(lx, ly, ltxt, fontsize=6.2, color="#64748B", fontweight="bold")
 
+    # Tracciamento traiettorie con freccia proporzionata
     for sz, ez, ev in attacks_list:
         start_pt = COORDS_MAP.get(sz, (0.5, 0.6))
         end_key = f"def_{ez}"
@@ -624,13 +623,13 @@ def render_court_plot_with_corner_labels(attacks_list):
 
     plt.tight_layout(pad=0)
     buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight", transparent=True)
+    plt.savefig(buf, format="png", dpi=120, bbox_inches="tight", transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf
 
 # ==========================================================
-# TAB 2: DASHBOARD COMPARATIVA & 6 CAMPI (COACH)
+# TAB 2: DASHBOARD COMPARATIVA & 6 CAMPI RETTANGOLARI (COACH)
 # ==========================================================
 with tab_coach:
     st.header(f"📊 Dashboard Coach: Busnago vs {st.session_state['opp_team']} (Set {st.session_state['current_set']})")
@@ -752,9 +751,9 @@ with tab_coach:
 
     st.markdown("---")
 
-    # 3. I 6 CAMPI GRAFICI ROTAZIONE
+    # 3. I 6 CAMPI GRAFICI ROTAZIONE RETTANGOLARI
     st.subheader("🗺️ Mappa Grafica dei 6 Campi (P1, P6, P5, P4, P3, P2)")
-    st.caption("Campi verticali con numeri nell'angolo, traiettorie e distribuzione Basi:")
+    st.caption("Campi verticali rettangolari regolamentari con traiettorie e distribuzione Basi:")
 
     r1_c1, r1_c2, r1_c3 = st.columns(3)
     r2_c1, r2_c2, r2_c3 = st.columns(3)
