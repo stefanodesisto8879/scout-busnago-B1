@@ -71,7 +71,6 @@ if "selected_end_z" not in st.session_state:
 if "att_team_target" not in st.session_state:
     st.session_state["att_team_target"] = "Avversario"
 
-# Dataframe Roster con solo Numero e Ruolo
 if "roster_df_busnago" not in st.session_state:
     st.session_state["roster_df_busnago"] = pd.DataFrame([
         {"Numero": "1", "Ruolo": "P"},
@@ -164,44 +163,87 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS: PULSANTI QUADRATI E CAMPO CON BORDI RIGIDI
+# STILE CSS CAMPO GRAFICO CON BORDI E SOTTOZONE ESATTE
 # ==========================================================
 st.markdown("""
 <style>
-    /* Campo da pallavolo con perimetro esterno marcato */
-    .volleyball-court-wrapper {
-        border: 3.5px solid #000000;
-        border-radius: 4px;
+    /* Bordo esterno campo identico al disegno tecnico */
+    .unified-court {
+        border: 2.5px solid #1E293B;
         background-color: #FFFFFF;
-        padding: 6px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        width: 100%;
         max-width: 320px;
         margin: 0 auto;
+        padding: 0;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
     }
     
-    /* Forza i bottoni delle zone a essere QUADRATI e con numero piccolo */
-    div[data-testid="column"] button {
-        aspect-ratio: 1 / 1 !important;
-        height: auto !important;
-        min-height: 44px !important;
-        font-size: 0.85rem !important;
-        font-weight: 800 !important;
-        padding: 0px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 4px !important;
-        border: 1px dashed #94A3B8 !important;
+    .court-net-bar {
+        border-top: 4.5px solid #000000;
+        margin: 0;
+        width: 100%;
     }
     
-    .net-separator {
-        border-top: 5px solid #000000;
-        margin: 6px 0px;
+    .court-3m-line {
+        border-top: 1.5px solid #1E293B;
+        margin: 0;
+        width: 100%;
+    }
+    
+    .court-dash-h {
+        border-top: 1.2px dashed #94A3B8;
+        margin: 0;
+        width: 100%;
+    }
+
+    /* Rimuove margini tra le colonne per unire i quadrati */
+    div[data-testid="column"] {
+        padding: 0px 1px !important;
+    }
+    
+    /* Quadrati con numero nell'angolo */
+    div.court-cell {
         position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
     }
-    .three-meter-line {
-        border-top: 1.5px dashed #EF4444;
-        margin: 3px 0px;
+    
+    div.court-num-badge {
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        color: #64748B;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    /* Bottoni delle celle campo */
+    div.court-cell button {
+        width: 100% !important;
+        height: 100% !important;
+        aspect-ratio: 1 / 1 !important;
+        border-radius: 0px !important;
+        border: none !important;
+        background-color: transparent !important;
+        color: transparent !important;
+        font-size: 0.01rem !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    div.court-cell button:hover {
+        background-color: rgba(59, 130, 246, 0.15) !important;
+    }
+
+    /* Bordo tratteggiato verticale tra le 3 colonne */
+    .dash-v-left {
+        border-left: 1.2px dashed #94A3B8;
+    }
+    .dash-v-right {
+        border-right: 1.2px dashed #94A3B8;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -407,9 +449,9 @@ with tab_scout:
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
 
-    # 3. CAMPO INTERO VERTICALE TOUCH CON QUADRATI E BORDI REALI
+    # 3. CAMPO INTERO VERTICALE IDENTICO ALL'ALLEGATO
     with c_p3:
-        st.subheader("3️⃣ Campo Unificato: Traiettoria")
+        st.subheader("3️⃣ Traiettoria Attacco")
         
         target_team = st.radio(
             "Squadra in Attacco:",
@@ -419,69 +461,78 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
-        # CAMPO GRAFICO RACCHIUSO DA BORDI ESTERNI
-        st.markdown('<div class="volleyball-court-wrapper">', unsafe_allow_html=True)
-        st.markdown("<div style='text-align: center; font-size: 0.68rem; font-weight: 800; color: #475569; margin-bottom: 2px;'>ATTACCO (PARTENZA)</div>", unsafe_allow_html=True)
+        # Helper per creare ogni casella con numero nell'angolo e colore di selezione
+        def render_court_cell(col, num_label, key_suffix, is_selected, select_type="start"):
+            bg_style = "background-color: #EF4444 !important;" if (is_selected and select_type == "start") else (
+                "background-color: #3B82F6 !important;" if (is_selected and select_type == "end") else ""
+            )
+            text_color = "color: white !important;" if is_selected else "color: #475569;"
+            
+            with col:
+                st.markdown(f"""
+                <div class="court-cell">
+                    <div class="court-num-badge" style="{text_color}">{num_label}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button(" ", key=f"btn_{select_type}_{key_suffix}_{num_label}", use_container_width=True):
+                    if select_type == "start":
+                        st.session_state["selected_start_z"] = num_label
+                    else:
+                        st.session_state["selected_end_z"] = num_label
+                    st.rerun()
 
+        # CONTENITORE CAMPO UNIFICATO
+        st.markdown('<div class="unified-court">', unsafe_allow_html=True)
+
+        # METÀ SUPERIORE: ATTACCO
         # Riga 1 (Fondo campo attacco): 1, 6, 5
-        row_o1 = st.columns(3)
-        for col, zn in zip(row_o1, ["1", "6", "5"]):
-            b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_start_z"] = zn
-                st.rerun()
+        r_att1 = st.columns(3)
+        render_court_cell(r_att1[0], "1", "att", st.session_state["selected_start_z"] == "1", "start")
+        render_court_cell(r_att1[1], "6", "att", st.session_state["selected_start_z"] == "6", "start")
+        render_court_cell(r_att1[2], "5", "att", st.session_state["selected_start_z"] == "5", "start")
 
-        # Linea tratteggiata 3 metri attacco
-        st.markdown('<div class="three-meter-line"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="court-dash-h"></div>', unsafe_allow_html=True)
 
         # Riga 2 (Seconda linea / Pipe): 9, 8, 7
-        row_o2 = st.columns(3)
-        for col, zn in zip(row_o2, ["9", "8", "7"]):
-            b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_start_z"] = zn
-                st.rerun()
+        r_att2 = st.columns(3)
+        render_court_cell(r_att2[0], "9", "att", st.session_state["selected_start_z"] == "9", "start")
+        render_court_cell(r_att2[1], "8", "att", st.session_state["selected_start_z"] == "8", "start")
+        render_court_cell(r_att2[2], "7", "att", st.session_state["selected_start_z"] == "7", "start")
 
-        # Riga 3 (Sotto rete attacco): 2, 3, 4 (Posto 4 in basso a destra dell'area d'attacco)
-        row_o3 = st.columns(3)
-        for col, zn in zip(row_o3, ["2", "3", "4"]):
-            b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
-            if col.button(zn, key=f"att_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_start_z"] = zn
-                st.rerun()
+        st.markdown('<div class="court-3m-line"></div>', unsafe_allow_html=True)
 
-        # Rete Centrale Marcata
-        st.markdown('<div class="net-separator"></div>', unsafe_allow_html=True)
+        # Riga 3 (Sotto rete attacco): 2, 3, 4
+        r_att3 = st.columns(3)
+        render_court_cell(r_att3[0], "2", "att", st.session_state["selected_start_z"] == "2", "start")
+        render_court_cell(r_att3[1], "3", "att", st.session_state["selected_start_z"] == "3", "start")
+        render_court_cell(r_att3[2], "4", "att", st.session_state["selected_start_z"] == "4", "start")
 
-        # Metà Campo Difesa (Arrivo)
+        # RETE CENTRALE SPESSA
+        st.markdown('<div class="court-net-bar"></div>', unsafe_allow_html=True)
+
+        # METÀ INFERIORE: DIFESA
         # Riga 1 (Sotto rete difesa): 4, 3, 2
-        row_d1 = st.columns(3)
-        for col, zn in zip(row_d1, ["4", "3", "2"]):
-            b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_end_z"] = zn
-                st.rerun()
+        r_def1 = st.columns(3)
+        render_court_cell(r_def1[0], "4", "def", st.session_state["selected_end_z"] == "4", "end")
+        render_court_cell(r_def1[1], "3", "def", st.session_state["selected_end_z"] == "3", "end")
+        render_court_cell(r_def1[2], "2", "def", st.session_state["selected_end_z"] == "2", "end")
+
+        st.markdown('<div class="court-3m-line"></div>', unsafe_allow_html=True)
 
         # Riga 2 (Centro campo difesa): 7, 8, 9
-        row_d2 = st.columns(3)
-        for col, zn in zip(row_d2, ["7", "8", "9"]):
-            b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_end_z"] = zn
-                st.rerun()
+        r_def2 = st.columns(3)
+        render_court_cell(r_def2[0], "7", "def", st.session_state["selected_end_z"] == "7", "end")
+        render_court_cell(r_def2[1], "8", "def", st.session_state["selected_end_z"] == "8", "end")
+        render_court_cell(r_def2[2], "9", "def", st.session_state["selected_end_z"] == "9", "end")
 
-        # Linea tratteggiata 3 metri difesa
-        st.markdown('<div class="three-meter-line"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="court-dash-h"></div>', unsafe_allow_html=True)
 
         # Riga 3 (Fondo campo difesa): 5, 6, 1
-        row_d3 = st.columns(3)
-        for col, zn in zip(row_d3, ["5", "6", "1"]):
-            b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
-            if col.button(zn, key=f"def_z_{zn}", type=b_color, use_container_width=True):
-                st.session_state["selected_end_z"] = zn
-                st.rerun()
+        r_def3 = st.columns(3)
+        render_court_cell(r_def3[0], "5", "def", st.session_state["selected_end_z"] == "5", "end")
+        render_court_cell(r_def3[1], "6", "def", st.session_state["selected_end_z"] == "6", "end")
+        render_court_cell(r_def3[2], "1", "def", st.session_state["selected_end_z"] == "1", "end")
 
-        st.markdown("<div style='text-align: center; font-size: 0.68rem; font-weight: 800; color: #475569; margin-top: 2px;'>DIFESA (ARRIVO)</div>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown(f"**Esito Traiettoria ({target_team}: {st.session_state['selected_start_z']} ➔ {st.session_state['selected_end_z']}):**")
@@ -597,6 +648,7 @@ def render_court_plot_with_corner_labels(attacks_list):
     for y_val in [0.17, 0.83]:
         ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
 
+    # Numeri piccoli nell'angolo con orientamento naturale
     corner_labels = {
         (0.02, 0.95): "1", (0.35, 0.95): "6", (0.68, 0.95): "5",
         (0.02, 0.78): "9", (0.35, 0.78): "8", (0.68, 0.78): "7",
