@@ -2,6 +2,7 @@ import io
 import math
 from collections import defaultdict
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -34,10 +35,11 @@ ROTATION_LINEUPS = {
     2: {"type": 2, "label": "Attacco a 2"},
 }
 
+# Coordinate campo corrette secondo la reale prospettiva di gioco
 COORDS_MAP = {
-    "4": (0.17, 0.55), "3": (0.50, 0.55), "2": (0.83, 0.55),
-    "7": (0.17, 0.70), "8": (0.50, 0.70), "9": (0.83, 0.70),
-    "5": (0.17, 0.88), "6": (0.50, 0.88), "1": (0.83, 0.88),
+    "4": (0.83, 0.55), "3": (0.50, 0.55), "2": (0.17, 0.55),
+    "7": (0.83, 0.70), "8": (0.50, 0.70), "9": (0.17, 0.70),
+    "5": (0.83, 0.88), "6": (0.50, 0.88), "1": (0.17, 0.88),
     "def_4": (0.17, 0.45), "def_3": (0.50, 0.45), "def_2": (0.83, 0.45),
     "def_7": (0.17, 0.30), "def_8": (0.50, 0.30), "def_9": (0.83, 0.30),
     "def_5": (0.17, 0.12), "def_6": (0.50, 0.12), "def_1": (0.83, 0.12),
@@ -70,13 +72,40 @@ if "selected_end_z" not in st.session_state:
 if "att_team_target" not in st.session_state:
     st.session_state["att_team_target"] = "Avversario"
 
-if "roster_busnago" not in st.session_state:
-    st.session_state["roster_busnago"] = ["#1", "#2", "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#10", "#11", "#12"]
+# Dataframe Roster con solo Numero e Ruolo
+if "roster_df_busnago" not in st.session_state:
+    st.session_state["roster_df_busnago"] = pd.DataFrame([
+        {"Numero": "1", "Ruolo": "P"},
+        {"Numero": "2", "Ruolo": "S1"},
+        {"Numero": "3", "Ruolo": "C1"},
+        {"Numero": "4", "Ruolo": "O"},
+        {"Numero": "5", "Ruolo": "S2"},
+        {"Numero": "6", "Ruolo": "C2"},
+        {"Numero": "7", "Ruolo": "L"},
+        {"Numero": "8", "Ruolo": "S"},
+        {"Numero": "9", "Ruolo": "C"},
+        {"Numero": "10", "Ruolo": "P"},
+        {"Numero": "11", "Ruolo": "O"},
+        {"Numero": "12", "Ruolo": "L"}
+    ])
 
-if "roster_opp" not in st.session_state:
-    st.session_state["roster_opp"] = ["#1", "#2", "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#10", "#11", "#12"]
+if "roster_df_opp" not in st.session_state:
+    st.session_state["roster_df_opp"] = pd.DataFrame([
+        {"Numero": "1", "Ruolo": "P"},
+        {"Numero": "2", "Ruolo": "S1"},
+        {"Numero": "3", "Ruolo": "C1"},
+        {"Numero": "4", "Ruolo": "O"},
+        {"Numero": "5", "Ruolo": "S2"},
+        {"Numero": "6", "Ruolo": "C2"},
+        {"Numero": "7", "Ruolo": "L"},
+        {"Numero": "8", "Ruolo": "S"},
+        {"Numero": "9", "Ruolo": "C"},
+        {"Numero": "10", "Ruolo": "P"},
+        {"Numero": "11", "Ruolo": "O"},
+        {"Numero": "12", "Ruolo": "L"}
+    ])
 
-# Inizializzazione protetta dizionario dati
+# Inizializzazione protetta del contenitore dati
 if "match_data" not in st.session_state or not isinstance(st.session_state["match_data"], dict):
     st.session_state["match_data"] = {}
 
@@ -123,6 +152,18 @@ if "opp_stats" not in m_data:
         "bp_kill": 0, "bp_in": 0, "bp_err": 0,
         "blk_pts": 0, "blk_err": 0
     }
+
+def get_player_labels(df):
+    labels = []
+    for _, row in df.iterrows():
+        num = str(row["Numero"]).strip()
+        role = str(row["Ruolo"]).strip() if pd.notna(row["Ruolo"]) and str(row["Ruolo"]).strip() else ""
+        if num:
+            labels.append(f"#{num} ({role})" if role else f"#{num}")
+    return labels if labels else ["#1", "#2", "#3", "#4", "#5", "#6"]
+
+roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
+roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
 # STILE CSS AD ALTO CONTRASTO PER TOUCH TABLET
@@ -188,7 +229,7 @@ st.markdown("---")
 tab_scout, tab_coach, tab_roster = st.tabs([
     "📝 RILEVAZIONE LIVE (TOUCH)", 
     "📊 DASHBOARD COMPARATIVA & 6 CAMPI (COACH)",
-    "👥 GESTIONE ROSTER GIOCATORI"
+    "👥 GESTIONE NUMERI E RUOLI"
 ])
 
 cur_rot = st.session_state["current_rot"]
@@ -200,9 +241,7 @@ rot_setup = ROTATION_LINEUPS[cur_rot]
 with tab_scout:
     c_p1, c_p2, c_p3, c_p4 = st.columns([3, 3, 3.8, 2.2])
 
-    # ----------------------------------------------------
     # 1. BATTUTA & RICEZIONE
-    # ----------------------------------------------------
     with c_p1:
         st.subheader("1️⃣ Servizio & Ricezione")
         
@@ -226,8 +265,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "our_stat", "key": "srv_err"})
             st.rerun()
 
-        st.markdown("**Ricezione Busnago per Giocatore:**")
-        p_sel_bus = st.selectbox("Giocatrice Busnago:", st.session_state["roster_busnago"], key="sel_r_bus")
+        st.markdown("**Ricezione Busnago:**")
+        p_sel_bus = st.selectbox("Giocatrice Busnago:", roster_labels_busnago, key="sel_r_bus")
         r_b1, r_b2, r_b3 = st.columns(3)
         if r_b1.button("Pos (#)", key="r_bus_pos", use_container_width=True):
             m_data["rec_player_busnago"][p_sel_bus]["#"] += 1
@@ -246,8 +285,8 @@ with tab_scout:
             st.rerun()
 
         st.markdown("---")
-        st.markdown(f"**Battuta Loro in P{cur_rot} (Zona + Effetto):**")
-        p_sel_opp = st.selectbox("Loro Ricevitore:", st.session_state["roster_opp"], key="sel_r_opp")
+        st.markdown(f"**Battuta Loro in P{cur_rot}:**")
+        p_sel_opp = st.selectbox("Ricevitore Avversario:", roster_labels_opp, key="sel_r_opp")
         r_o1, r_o2, r_o3 = st.columns(3)
         if r_o1.button("Pos (#)", key="r_opp_pos", use_container_width=True):
             m_data["rec_player_opp"][p_sel_opp]["#"] += 1
@@ -279,9 +318,7 @@ with tab_scout:
                 st.session_state["history"].append({"type": "opp_serve", "rot": cur_rot, "key": zn})
                 st.rerun()
 
-    # ----------------------------------------------------
-    # 2. BASI CENTRALE & COMBINAZIONI
-    # ----------------------------------------------------
+    # 2. BASI CENTRALE
     with c_p2:
         st.subheader(f"2️⃣ Basi Centrale P{cur_rot}")
         st.caption("Combinazioni complete:")
@@ -342,9 +379,7 @@ with tab_scout:
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
 
-    # ----------------------------------------------------
-    # 3. CAMPO INTERO VERTICALE TOUCH (ATTACCO & DIFESA)
-    # ----------------------------------------------------
+    # 3. CAMPO INTERO VERTICALE TOUCH (DISPOSIZIONE CORRETTA)
     with c_p3:
         st.subheader("3️⃣ Campo Unificato: Traiettoria")
         
@@ -356,45 +391,74 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
+        # Metà Campo Attacco (Partenza)
         st.markdown("""
-        <div style="background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 8px; padding: 6px;">
-            <div style="text-align: center; font-size: 0.75rem; font-weight: bold; color: #475569;">METÀ CAMPO ATTACCO</div>
+        <div style="background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 8px 8px 0px 0px; padding: 4px; text-align: center; font-size: 0.75rem; font-weight: bold; color: #475569;">
+            METÀ CAMPO ATTACCO (PARTENZA)
         </div>
         """, unsafe_allow_html=True)
 
+        # Riga 1 (Fondo campo attacco): 1, 6, 5
         row_o1 = st.columns(3)
-        row_o2 = st.columns(3)
-        row_o3 = st.columns(3)
-
-        for col, zn, label in zip(
-            [row_o1[0], row_o1[1], row_o1[2], row_o2[0], row_o2[1], row_o2[2], row_o3[0], row_o3[1], row_o3[2]],
-            ["4", "3", "2", "7", "8", "9", "5", "6", "1"],
-            ["Z4", "Z3", "Z2", "Z7", "Z8 (Pipe)", "Z9", "Z5", "Z6", "Z1"]
-        ):
+        for col, zn, label in zip(row_o1, ["1", "6", "5"], ["Z1 (Dx)", "Z6 (C)", "Z5 (Sx)"]):
             b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
             if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_start_z"] = zn
                 st.rerun()
 
+        # Riga 2 (Seconda linea / Pipe): 9, 8, 7
+        row_o2 = st.columns(3)
+        for col, zn, label in zip(row_o2, ["9", "8", "7"], ["Z9", "Z8 (Pipe)", "Z7"]):
+            b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
+            if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
+                st.session_state["selected_start_z"] = zn
+                st.rerun()
+
+        # Riga 3 (Sotto rete attacco): 2, 3, 4 (Posto 4 in basso a destra dell'area d'attacco)
+        row_o3 = st.columns(3)
+        for col, zn, label in zip(row_o3, ["2", "3", "4"], ["Z2", "Z3", "Z4"]):
+            b_color = "primary" if st.session_state["selected_start_z"] == zn else "secondary"
+            if col.button(label, key=f"att_z_{zn}", type=b_color, use_container_width=True):
+                st.session_state["selected_start_z"] = zn
+                st.rerun()
+
+        # Rete Centrale Marcata
         st.markdown("""
-        <div style="margin: 8px 0px; text-align: center; border-top: 4px solid #000000; border-bottom: 2px solid #000000; padding: 2px 0px; background-color: #E2E8F0; font-size: 0.75rem; font-weight: bold;">
+        <div style="margin: 6px 0px; text-align: center; border-top: 4px solid #000000; border-bottom: 2px solid #000000; padding: 2px 0px; background-color: #CBD5E1; font-size: 0.75rem; font-weight: bold; color: #0F172A;">
             ━━━━━━ RETE CENTRALE ━━━━━━
         </div>
         """, unsafe_allow_html=True)
 
+        # Metà Campo Difesa (Arrivo)
+        # Riga 1 (Sotto rete difesa): D4, D3, D2
         row_d1 = st.columns(3)
-        row_d2 = st.columns(3)
-        row_d3 = st.columns(3)
-
-        for col, zn, label in zip(
-            [row_d1[0], row_d1[1], row_d1[2], row_d2[0], row_d2[1], row_d2[2], row_d3[0], row_d3[1], row_d3[2]],
-            ["4", "3", "2", "7", "8", "9", "5", "6", "1"],
-            ["D4", "D3", "D2", "D7", "D8", "D9", "D5", "D6", "D1"]
-        ):
+        for col, zn, label in zip(row_d1, ["4", "3", "2"], ["D4", "D3", "D2"]):
             b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
             if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
                 st.session_state["selected_end_z"] = zn
                 st.rerun()
+
+        # Riga 2 (Centro campo difesa): D7, D8, D9
+        row_d2 = st.columns(3)
+        for col, zn, label in zip(row_d2, ["7", "8", "9"], ["D7", "D8", "D9"]):
+            b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
+            if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
+                st.session_state["selected_end_z"] = zn
+                st.rerun()
+
+        # Riga 3 (Fondo campo difesa): D5, D6, D1
+        row_d3 = st.columns(3)
+        for col, zn, label in zip(row_d3, ["5", "6", "1"], ["D5", "D6", "D1"]):
+            b_color = "primary" if st.session_state["selected_end_z"] == zn else "secondary"
+            if col.button(label, key=f"def_z_{zn}", type=b_color, use_container_width=True):
+                st.session_state["selected_end_z"] = zn
+                st.rerun()
+
+        st.markdown("""
+        <div style="background-color: #F8FAFC; border: 2px solid #0F172A; border-radius: 0px 0px 8px 8px; padding: 4px; text-align: center; font-size: 0.75rem; font-weight: bold; color: #475569;">
+            METÀ CAMPO DIFESA (ARRIVO)
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown(f"**Registra Esito Traiettoria ({target_team}: Z{st.session_state['selected_start_z']} ➔ D{st.session_state['selected_end_z']}):**")
         es1, es2, es3 = st.columns(3)
@@ -438,9 +502,7 @@ with tab_scout:
                 st.session_state["history"].append({"type": "busnago_attack", "rot": cur_rot})
             st.rerun()
 
-    # ----------------------------------------------------
     # 4. MURO & FASI BREAK POINT
-    # ----------------------------------------------------
     with c_p4:
         st.subheader("4️⃣ Muro & BP")
 
@@ -501,6 +563,7 @@ def render_court_plot_with_corner_labels(attacks_list):
     rect = patches.Rectangle((0, 0), 1, 1, linewidth=1.5, edgecolor="black", facecolor="white")
     ax.add_patch(rect)
 
+    # Rete
     ax.plot([0, 1], [0.5, 0.5], color="black", linewidth=2.5)
     ax.plot([0, 1], [0.67, 0.67], color="black", linewidth=1.0)
     ax.plot([0, 1], [0.33, 0.33], color="black", linewidth=1.0)
@@ -510,10 +573,11 @@ def render_court_plot_with_corner_labels(attacks_list):
     for y_val in [0.17, 0.83]:
         ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
 
+    # Numeri piccoli nell'angolo con orientamento naturale
     corner_labels = {
-        (0.02, 0.95): "5", (0.35, 0.95): "6", (0.68, 0.95): "1",
-        (0.02, 0.78): "7", (0.35, 0.78): "8", (0.68, 0.78): "9",
-        (0.02, 0.61): "4", (0.35, 0.61): "3", (0.68, 0.61): "2",
+        (0.02, 0.95): "1", (0.35, 0.95): "6", (0.68, 0.95): "5",
+        (0.02, 0.78): "9", (0.35, 0.78): "8", (0.68, 0.78): "7",
+        (0.02, 0.61): "2", (0.35, 0.61): "3", (0.68, 0.61): "4",
         (0.02, 0.45): "4", (0.35, 0.45): "3", (0.68, 0.45): "2",
         (0.02, 0.28): "7", (0.35, 0.28): "8", (0.68, 0.28): "9",
         (0.02, 0.12): "5", (0.35, 0.12): "6", (0.68, 0.12): "1",
@@ -548,7 +612,6 @@ with tab_coach:
 
     st.subheader("⚖️ Comparazione Fasi di Gioco (Noi vs Loro)")
     
-    # Accesso protetto con default per azzerare i KeyError
     st_b = m_data.setdefault("our_stats", {
         "srv_ace": 0, "srv_in": 0, "srv_err": 0, "rec_pos": 0, "rec_neg": 0, "rec_err": 0,
         "cp_kill": 0, "cp_in": 0, "cp_err": 0, "bp_kill": 0, "bp_in": 0, "bp_err": 0,
@@ -570,7 +633,7 @@ with tab_coach:
     tot_bp_b = st_b["bp_kill"] + st_b["bp_in"] + st_b["bp_err"]
     tot_bp_o = st_o["bp_kill"] + st_o["bp_in"] + st_o["bp_err"]
     bp_kill_b = (st_b["bp_kill"] / tot_bp_b * 100) if tot_bp_b > 0 else 0
-    bp_kill_o = (st_o["bp_kill"] / tot_bp_o * 100) if tot_bp_o > 0 else 0
+    bp_kill_o = (st_o["bp_kill"] / tot_bp_o * 100) if tot_bp_b > 0 else 0
     bp_err_b = (st_b["bp_err"] / tot_bp_b * 100) if tot_bp_b > 0 else 0
     bp_err_o = (st_o["bp_err"] / tot_bp_o * 100) if tot_bp_o > 0 else 0
 
@@ -724,33 +787,46 @@ with tab_coach:
         st.info("Nessuna azione ancora registrata nel Money Time.")
 
 # ==========================================================
-# TAB 3: GESTIONE ROSTER GIOCATORI
+# TAB 3: GESTIONE NUMERI E RUOLI (ROSTER COMPATTO)
 # ==========================================================
 with tab_roster:
-    st.header("👥 Inserimento e Modifica Giocatrici")
+    st.header("👥 Inserimento Numero di Maglia e Ruolo")
+    st.write("Inserisci solo il numero e scegli il ruolo. Clicca su **Aggiungi riga** in fondo alla tabella se hai più giocatrici.")
     
     col_ros1, col_ros2 = st.columns(2)
     
+    ruoli_disponibili = ["P", "O", "S1", "S2", "S", "C1", "C2", "C", "L"]
+    
     with col_ros1:
         st.subheader("Busnago (Nostra Squadra)")
-        bus_text = st.text_area(
-            "Elenco Giocatrici Busnago (un nome/numero per riga):",
-            value="\n".join(st.session_state["roster_busnago"]),
-            height=250
+        edited_busnago = st.data_editor(
+            st.session_state["roster_df_busnago"],
+            column_config={
+                "Numero": st.column_config.TextColumn("N° Maglia", required=True),
+                "Ruolo": st.column_config.SelectboxColumn("Ruolo", options=ruoli_disponibili, required=False)
+            },
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editor_busnago"
         )
-        if st.button("Aggiorna Roster Busnago"):
-            st.session_state["roster_busnago"] = [line.strip() for line in bus_text.splitlines() if line.strip()]
-            st.success("Roster Busnago aggiornato!")
+        if st.button("💾 Salva Formazione Busnago"):
+            st.session_state["roster_df_busnago"] = edited_busnago
+            st.success("Formazione Busnago aggiornata!")
             st.rerun()
 
     with col_ros2:
         st.subheader(f"{st.session_state['opp_team']} (Avversario)")
-        opp_text = st.text_area(
-            "Elenco Giocatrici Avversario (un nome/numero per riga):",
-            value="\n".join(st.session_state["roster_opp"]),
-            height=250
+        edited_opp = st.data_editor(
+            st.session_state["roster_df_opp"],
+            column_config={
+                "Numero": st.column_config.TextColumn("N° Maglia", required=True),
+                "Ruolo": st.column_config.SelectboxColumn("Ruolo", options=ruoli_disponibili, required=False)
+            },
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editor_opp"
         )
-        if st.button("Aggiorna Roster Avversario"):
-            st.session_state["roster_opp"] = [line.strip() for line in opp_text.splitlines() if line.strip()]
-            st.success("Roster Avversario aggiornato!")
+        if st.button("💾 Salva Formazione Avversaria"):
+            st.session_state["roster_df_opp"] = edited_opp
+            st.success("Formazione Avversaria aggiornata!")
             st.rerun()
