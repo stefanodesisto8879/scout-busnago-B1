@@ -2,12 +2,11 @@ import io
 import math
 from collections import defaultdict
 import streamlit as st
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib import colors
-from reportlab.pdfgen import canvas
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 # ==========================================================
-# CONFIGURAZIONE PAGINA (TOUCH TABLET FULL-WIDTH)
+# CONFIGURAZIONE PAGINA TABLET
 # ==========================================================
 st.set_page_config(
     page_title="Busnago Live Touch Scout",
@@ -26,18 +25,28 @@ BENCHMARK_B1 = {
     "block": {"eff_min": 15.0, "fault_max": 33.0}
 }
 
-# Sestetti tipici per rotazione avversaria
 ROTATION_LINEUPS = {
-    1: {"p": "P", "c": "C2", "s": "S1", "o": "O", "c_back": "C1", "s_back": "S2", "type": 3},
-    6: {"p": "P", "c": "C2", "s": "S1", "o": "O", "c_back": "C1", "s_back": "S2", "type": 3},
-    5: {"p": "P", "c": "C1", "s": "S2", "o": "O", "c_back": "C2", "s_back": "S1", "type": 3},
-    4: {"p": "P", "c": "C1", "s": "S2", "o": "O", "c_back": "C2", "s_back": "S1", "type": 2},
-    3: {"p": "P", "c": "C1", "s": "S2", "o": "O", "c_back": "C2", "s_back": "S1", "type": 2},
-    2: {"p": "P", "c": "C2", "s": "S1", "o": "O", "c_back": "C1", "s_back": "S2", "type": 2},
+    1: {"type": 3, "label": "Attacco a 3"},
+    6: {"type": 3, "label": "Attacco a 3"},
+    5: {"type": 3, "label": "Attacco a 3"},
+    4: {"type": 2, "label": "Attacco a 2"},
+    3: {"type": 2, "label": "Attacco a 2"},
+    2: {"type": 2, "label": "Attacco a 2"},
+}
+
+ATTACK_ZONES = ["4", "3", "2", "8", "1", "6", "5", "9", "7"]
+
+COORDS_MAP = {
+    "2": (0.17, 0.53), "3": (0.50, 0.53), "4": (0.83, 0.53),
+    "9": (0.17, 0.70), "8": (0.50, 0.70), "7": (0.83, 0.70),
+    "1": (0.17, 0.88), "6": (0.50, 0.88), "5": (0.83, 0.88),
+    "def_4": (0.17, 0.44), "def_3": (0.50, 0.44), "def_2": (0.83, 0.44),
+    "def_9": (0.17, 0.28), "def_8": (0.50, 0.28), "def_7": (0.83, 0.28),
+    "def_5": (0.17, 0.11), "def_6": (0.50, 0.11), "def_1": (0.83, 0.11),
 }
 
 # ==========================================================
-# GESTIONE DELLO STATO (SESSION STATE)
+# INIZIALIZZAZIONE SESSION STATE
 # ==========================================================
 if "history" not in st.session_state:
     st.session_state["history"] = []
@@ -54,7 +63,12 @@ if "opp_team" not in st.session_state:
 if "our_server" not in st.session_state:
     st.session_state["our_server"] = {1: "#", 6: "#", 5: "#", 4: "#", 3: "#", 2: "#"}
 
-# Struttura Dati di Partita
+if "selected_start_z" not in st.session_state:
+    st.session_state["selected_start_z"] = "4"
+
+if "selected_end_z" not in st.session_state:
+    st.session_state["selected_end_z"] = "5"
+
 if "match_data" not in st.session_state:
     st.session_state["match_data"] = {
         "rotations": {
@@ -62,7 +76,7 @@ if "match_data" not in st.session_state:
                 "bases": defaultdict(int),
                 "attacks": [],
                 "serve_targets": defaultdict(int),
-                "server_num": "",
+                "opp_rec": defaultdict(int),
                 "total_att": 0
             }
             for p in range(1, 7)
@@ -77,328 +91,364 @@ if "match_data" not in st.session_state:
     }
 
 # ==========================================================
-# STILE CSS AD ALTO CONTRASTO PER TOUCH TABLET
+# CSS TOUCH PER TABLET
 # ==========================================================
 st.markdown("""
 <style>
-    .touch-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 14px 10px;
-        margin: 4px;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 1.1rem;
-        cursor: pointer;
-        text-align: center;
+    .zone-btn {
+        width: 100%;
+        height: 55px;
+        font-size: 1.15rem;
+        font-weight: bold;
     }
-    .metric-card {
+    .metric-box {
         background-color: #1E293B;
-        padding: 12px;
         border-radius: 8px;
+        padding: 10px;
         color: white;
         margin-bottom: 8px;
     }
-    .badge-ok { color: #10B981; font-weight: bold; }
-    .badge-warn { color: #EF4444; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================================
-# BARRA SUPERIORE: COMANDI E CAMBIO ROTAZIONE
+# HEADER: SELEZIONE RAPIDA ROTAZIONI E COMANDI
 # ==========================================================
-top_col1, top_col2, top_col3 = st.columns([3, 6, 3])
+top1, top2, top3 = st.columns([3, 6, 3])
 
-with top_col1:
+with top1:
     st.session_state["opp_team"] = st.text_input("Squadra Avversaria:", value=st.session_state["opp_team"])
 
-with top_col2:
-    st.write("**SELEZIONA FASE DI GIOCO (ROTAZIONE AVVERSARIA):**")
-    rot_cols = st.columns(6)
+with top2:
+    st.write("**SELEZIONA FASE DI GIOCO (P IN ZONA):**")
+    r_cols = st.columns(6)
     for idx, p in enumerate([1, 6, 5, 4, 3, 2]):
-        btn_type = "primary" if st.session_state["current_rot"] == p else "secondary"
-        if rot_cols[idx].button(f"P{p}", key=f"btn_rot_{p}", type=btn_type, use_container_width=True):
+        b_type = "primary" if st.session_state["current_rot"] == p else "secondary"
+        if r_cols[idx].button(f"P{p}", key=f"r_btn_{p}", type=b_type, use_container_width=True):
             st.session_state["current_rot"] = p
             st.rerun()
 
-with top_col3:
+with top3:
     st.session_state["current_set"] = st.selectbox("Set:", [1, 2, 3, 4, 5], index=st.session_state["current_set"] - 1)
-    if st.button("↩️ Annulla Ultimo Tocco", use_container_width=True):
+    if st.button("↩️ Annulla Ultimo Evento", use_container_width=True):
         if st.session_state["history"]:
-            last_action = st.session_state["history"].pop()
-            # Rollback
-            action_type = last_action["type"]
-            rot = last_action.get("rot", st.session_state["current_rot"])
-            if action_type == "base":
-                st.session_state["match_data"]["rotations"][rot]["bases"][last_action["key"]] -= 1
-                st.session_state["match_data"]["rotations"][rot]["total_att"] -= 1
-            elif action_type == "our_stat":
-                st.session_state["match_data"]["our_stats"][last_action["key"]] -= 1
-            elif action_type == "opp_attack":
-                st.session_state["match_data"]["rotations"][rot]["attacks"].pop()
-                st.session_state["match_data"]["rotations"][rot]["total_att"] -= 1
-            st.success("Ultimo inserimento annullato!")
+            last = st.session_state["history"].pop()
+            t_rot = last.get("rot", st.session_state["current_rot"])
+            if last["type"] == "base":
+                st.session_state["match_data"]["rotations"][t_rot]["bases"][last["key"]] -= 1
+                st.session_state["match_data"]["rotations"][t_rot]["total_att"] -= 1
+            elif last["type"] == "opp_attack":
+                if st.session_state["match_data"]["rotations"][t_rot]["attacks"]:
+                    st.session_state["match_data"]["rotations"][t_rot]["attacks"].pop()
+                    st.session_state["match_data"]["rotations"][t_rot]["total_att"] -= 1
+            elif last["type"] == "opp_serve":
+                st.session_state["match_data"]["rotations"][t_rot]["serve_targets"][last["key"]] -= 1
+            elif last["type"] == "our_stat":
+                st.session_state["match_data"]["our_stats"][last["key"]] -= 1
+            st.success("Ultima azione rimossa con successo!")
             st.rerun()
 
 st.markdown("---")
 
-# ==========================================================
-# CORPO PRINCIPALE: SPLIT SCREEN (SCOUT TOUCH vs DASHBOARD)
-# ==========================================================
-scout_tab, dash_tab = st.tabs(["📝 SCHERMO RILEVAZIONE (SCOUT)", "📊 DASHBOARD LIVE (COACH)"])
+tab_scout, tab_coach = st.tabs(["📝 SCHERMO RILEVAZIONE (SCOUT TOUCH)", "📊 DASHBOARD LIVE DEI 6 CAMPI (COACH)"])
 
 cur_rot = st.session_state["current_rot"]
-rot_info = ROTATION_LINEUPS[cur_rot]
+rot_setup = ROTATION_LINEUPS[cur_rot]
 
 # ==========================================================
-# VISTA 1: SCHERMO RILEVAZIONE TOUCH
+# 1. SCHERMO RILEVAZIONE TOUCH (SCOUT)
 # ==========================================================
-with scout_tab:
-    col_bases, col_att, col_team = st.columns([4, 4, 4])
+with tab_scout:
+    c_left, c_center, c_right = st.columns([4, 4, 4])
 
-    # ----------------------------------------------------
-    # COLONNA 1: MATRICE COMBINAZIONI PALLEGGIATORE (BASI)
-    # ----------------------------------------------------
-    with col_bases:
-        st.subheader(f"⚡ Basi Centrale P{cur_rot} ({'Attacco a 3' if rot_info['type'] == 3 else 'Attacco a 2'})")
+    # --- COLONNA 1: MATRICE BASI CENTRALE & BATTITORE ---
+    with c_left:
+        st.subheader(f"⚡ FASE P{cur_rot} - {rot_setup['label']}")
         
-        # Battitore nostro per questa rotazione
-        srv_val = st.text_input(f"Nostro Battitore in P{cur_rot}:", value=st.session_state["our_server"][cur_rot])
-        st.session_state["our_server"][cur_rot] = srv_val
+        st.session_state["our_server"][cur_rot] = st.text_input(
+            f"Nostro Battitore in P{cur_rot}:", 
+            value=st.session_state["our_server"][cur_rot]
+        )
 
-        st.caption("Tocca per registrare la scelta del palleggiatore:")
-        
-        if rot_info["type"] == 3:
-            # Griglia Attacco a 3 (P1, P6, P5)
-            b_cols1 = st.columns(2)
-            if b_cols1[0].button("Base 1", use_container_width=True):
+        st.write("**Tocca Combinazione Base Centrale:**")
+        if rot_setup["type"] == 3:
+            # Attacco a 3
+            g1, g2 = st.columns(2)
+            if g1.button("Base 1", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1"})
                 st.rerun()
-            if b_cols1[1].button("Base 7", use_container_width=True):
+            if g2.button("Base 7", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["7"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "7"})
                 st.rerun()
 
-            b_cols2 = st.columns(2)
-            if b_cols2[0].button("1 - 2", use_container_width=True):
+            g3, g4 = st.columns(2)
+            if g3.button("1 - 2", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1-2"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1-2"})
                 st.rerun()
-            if b_cols2[1].button("1 - 4", use_container_width=True):
+            if g4.button("1 - 4", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1-4"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1-4"})
                 st.rerun()
 
-            b_cols3 = st.columns(2)
-            if b_cols3[0].button("7 - 2", use_container_width=True):
+            g5, g6 = st.columns(2)
+            if g5.button("7 - 2", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["7-2"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "7-2"})
                 st.rerun()
-            if b_cols3[1].button("7 - 4", use_container_width=True):
+            if g6.button("7 - 4", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["7-4"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "7-4"})
                 st.rerun()
         else:
-            # Griglia Attacco a 2 (P4, P3, P2)
-            b2_cols1 = st.columns(2)
-            if b2_cols1[0].button("Base 2", use_container_width=True):
+            # Attacco a 2
+            g1, g2 = st.columns(2)
+            if g1.button("Base 2", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["2"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "2"})
                 st.rerun()
-            if b2_cols1[1].button("Base 1", use_container_width=True):
+            if g2.button("Base 1", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1"})
                 st.rerun()
 
-            b2_cols2 = st.columns(2)
-            if b2_cols2[0].button("Base F (Fast)", use_container_width=True):
+            g3, g4 = st.columns(2)
+            if g3.button("Base F (Fast)", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["F"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "F"})
                 st.rerun()
-            if b2_cols2[1].button("F - 6 (Pipe)", use_container_width=True):
+            if g4.button("F - 6 (Pipe)", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["F-6"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "F-6"})
                 st.rerun()
 
-            b2_cols3 = st.columns(2)
-            if b2_cols3[0].button("1 - 1", use_container_width=True):
+            g5, g6 = st.columns(2)
+            if g5.button("1 - 1", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1-1"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1-1"})
                 st.rerun()
-            if b2_cols3[1].button("1 - 4", use_container_width=True):
+            if g6.button("1 - 4", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["1-4"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "1-4"})
                 st.rerun()
 
-            b2_cols4 = st.columns(2)
-            if b2_cols4[0].button("F - 4", use_container_width=True):
+            g7, g8 = st.columns(2)
+            if g7.button("F - 4", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["F-4"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "F-4"})
                 st.rerun()
-            if b2_cols4[1].button("F - 1", use_container_width=True):
+            if g8.button("F - 1", use_container_width=True):
                 st.session_state["match_data"]["rotations"][cur_rot]["bases"]["F-1"] += 1
                 st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
                 st.session_state["history"].append({"type": "base", "rot": cur_rot, "key": "F-1"})
                 st.rerun()
 
-        st.markdown("**Riepilogo Scelte in P" + str(cur_rot) + ":**")
-        base_counts = st.session_state["match_data"]["rotations"][cur_rot]["bases"]
-        tot_b = st.session_state["match_data"]["rotations"][cur_rot]["total_att"]
-        if tot_b > 0:
-            for b_k, b_v in sorted(base_counts.items(), key=lambda x: x[1], reverse=True):
-                if b_v > 0:
-                    pct = (b_v / tot_b) * 100
-                    st.write(f"• **{b_k}**: {b_v} volte ({pct:.0f}%)")
-        else:
-            st.caption("Nessuna azione ancora registrata in questa fase.")
-
-    # ----------------------------------------------------
-    # COLONNA 2: TRAIETTORIE D'ATTACCO AVVERSARIE (TAP-TAP)
-    # ----------------------------------------------------
-    with col_att:
-        st.subheader(f"🎯 Attacco Avversario in P{cur_rot}")
-        
-        att_start = st.selectbox("Zona Partenza Attacco:", ["Posto 4", "Posto 3 (Centro)", "Posto 2", "Pipe (Z8)"])
-        att_end = st.selectbox("Bersaglio Difesa Nostra:", ["Zona 1", "Zona 6", "Zona 5", "Zona 7", "Zona 8", "Zona 9", "Zona 2", "Zona 3", "Zona 4"])
-        
-        st.write("**Seleziona Esito:**")
-        esito_cols = st.columns(3)
-        
-        if esito_cols[0].button("🟢 Punto (#)", use_container_width=True):
-            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append((att_start, att_end, "#"))
-            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
-            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
-            st.success("Punto avversario registrato!")
-            st.rerun()
-
-        if esito_cols[1].button("🟡 In Gioco (!)", use_container_width=True):
-            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append((att_start, att_end, "!"))
-            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
-            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
-            st.info("Attacco difeso/rigiocato registrato!")
-            st.rerun()
-
-        if esito_cols[2].button("🔴 Errore (=)", use_container_width=True):
-            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append((att_start, att_end, "="))
-            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
-            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
-            st.error("Errore/Murato avversario registrato!")
-            st.rerun()
-
         st.markdown("---")
-        st.write(f"**Attacchi totali registrati in P{cur_rot}: {len(st.session_state['match_data']['rotations'][cur_rot]['attacks'])}**")
-        for a_s, a_e, a_ev in st.session_state["match_data"]["rotations"][cur_rot]["attacks"][-4:]:
-            icon = "🟢" if a_ev == "#" else ("🔴" if a_ev == "=" else "🟡")
-            st.write(f"{icon} Da {a_s} a {a_e}")
+        st.write("**Battuta Avversaria in P" + str(cur_rot) + ":**")
+        st.caption("Tocca dove batte l'avversario:")
+        srv_c1, srv_c2, srv_c3 = st.columns(3)
+        for idx_z, z_srv in enumerate(["1", "6", "5", "9", "8", "7", "2", "3", "4"]):
+            target_col = [srv_c1, srv_c2, srv_c3][idx_z % 3]
+            cnt_s = st.session_state["match_data"]["rotations"][cur_rot]["serve_targets"][z_srv]
+            if target_col.button(f"Z{z_srv} ({cnt_s})", key=f"srv_btn_{z_srv}", use_container_width=True):
+                st.session_state["match_data"]["rotations"][cur_rot]["serve_targets"][z_srv] += 1
+                st.session_state["history"].append({"type": "opp_serve", "rot": cur_rot, "key": z_srv})
+                st.rerun()
 
-    # ----------------------------------------------------
-    # COLONNA 3: STATISTICHE RAPIDE NOSTRE (MODELLO B1)
-    # ----------------------------------------------------
-    with col_team:
-        st.subheader("🏐 Rendimento Busnago")
+    # --- COLONNA 2: TASTIERA TOUCH CAMPO A 9 SOTTOZONE (ATTACCO) ---
+    with c_center:
+        st.subheader("🏐 Campo Touch: Traiettoria Attacco")
+        
+        # 1. Selezione Zona Partenza Attacco
+        st.markdown(f"**1. Origine Attacco (Attivo: Posto {st.session_state['selected_start_z']}):**")
+        z_o1, z_o2, z_o3 = st.columns(3)
+        if z_o1.button("Posto 4", type="primary" if st.session_state["selected_start_z"] == "4" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "4"; st.rerun()
+        if z_o2.button("Posto 3 (C)", type="primary" if st.session_state["selected_start_z"] == "3" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "3"; st.rerun()
+        if z_o3.button("Posto 2", type="primary" if st.session_state["selected_start_z"] == "2" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "2"; st.rerun()
+
+        z_o4, z_o5, z_o6 = st.columns(3)
+        if z_o4.button("Pipe (Z8)", type="primary" if st.session_state["selected_start_z"] == "8" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "8"; st.rerun()
+        if z_o5.button("Zona 6", type="primary" if st.session_state["selected_start_z"] == "6" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "6"; st.rerun()
+        if z_o6.button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "1"; st.rerun()
+
+        # 2. Selezione Zona Arrivo Difesa
+        st.markdown(f"**2. Destinazione Difesa (Attivo: Zona {st.session_state['selected_end_z']}):**")
+        d_row1 = st.columns(3)
+        if d_row1[0].button("Z4 (Rete)", type="primary" if st.session_state["selected_end_z"] == "4" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "4"; st.rerun()
+        if d_row1[1].button("Z3 (Centro)", type="primary" if st.session_state["selected_end_z"] == "3" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "3"; st.rerun()
+        if d_row1[2].button("Z2 (Rete)", type="primary" if st.session_state["selected_end_z"] == "2" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "2"; st.rerun()
+
+        d_row2 = st.columns(3)
+        if d_row2[0].button("Zona 9", type="primary" if st.session_state["selected_end_z"] == "9" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "9"; st.rerun()
+        if d_row2[1].button("Zona 8", type="primary" if st.session_state["selected_end_z"] == "8" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "8"; st.rerun()
+        if d_row2[2].button("Zona 7", type="primary" if st.session_state["selected_end_z"] == "7" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "7"; st.rerun()
+
+        d_row3 = st.columns(3)
+        if d_row3[0].button("Zona 5 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "5" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "5"; st.rerun()
+        if d_row3[1].button("Zona 6 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "6" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "6"; st.rerun()
+        if d_row3[2].button("Zona 1 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "1" else "secondary", use_container_width=True):
+            st.session_state["selected_end_z"] = "1"; st.rerun()
+
+        # 3. Conferma Esito con Pulsantoni Colorati
+        st.write(f"**3. Registra Esito Traiettoria (Z{st.session_state['selected_start_z']} ➔ Z{st.session_state['selected_end_z']}):**")
+        es1, es2, es3 = st.columns(3)
+        if es1.button("🟢 PUNTO (#)", use_container_width=True):
+            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append(
+                (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "#")
+            )
+            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
+            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
+            st.rerun()
+
+        if es2.button("🟡 IN GIOCO (!)", use_container_width=True):
+            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append(
+                (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "!")
+            )
+            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
+            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
+            st.rerun()
+
+        if es3.button("🔴 ERRORE (=)", use_container_width=True):
+            st.session_state["match_data"]["rotations"][cur_rot]["attacks"].append(
+                (st.session_state["selected_start_z"], st.session_state["selected_end_z"], "=")
+            )
+            st.session_state["match_data"]["rotations"][cur_rot]["total_att"] += 1
+            st.session_state["history"].append({"type": "opp_attack", "rot": cur_rot})
+            st.rerun()
+
+    # --- COLONNA 3: STATISTICHE SQUADRA BUSNAGO ---
+    with c_right:
+        st.subheader("🛡️ Rendimento Busnago")
         st_data = st.session_state["match_data"]["our_stats"]
 
-        # 1. Battuta
-        st.write("**Battuta Nostra:**")
-        b_srv = st.columns(3)
-        if b_srv[0].button("Ace (#)", use_container_width=True):
-            st_data["srv_ace"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "srv_ace"})
-            st.rerun()
-        if b_srv[1].button("In Gioco (-)", use_container_width=True):
-            st_data["srv_in"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "srv_in"})
-            st.rerun()
-        if b_srv[2].button("Errore (=)", use_container_width=True):
-            st_data["srv_err"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "srv_err"})
-            st.rerun()
+        st.write("**Battuta Busnago:**")
+        srv_c = st.columns(3)
+        if srv_c[0].button("Ace (#)", use_container_width=True):
+            st_data["srv_ace"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "srv_ace"}); st.rerun()
+        if srv_c[1].button("In Gioco (-)", use_container_width=True):
+            st_data["srv_in"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "srv_in"}); st.rerun()
+        if srv_c[2].button("Errore (=)", use_container_width=True):
+            st_data["srv_err"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "srv_err"}); st.rerun()
 
-        # 2. Ricezione
-        st.write("**Ricezione Nostra:**")
-        b_rec = st.columns(3)
-        if b_rec[0].button("Positiva (#+)", use_container_width=True):
-            st_data["rec_pos"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "rec_pos"})
-            st.rerun()
-        if b_rec[1].button("Slash/Neg (!-)", use_container_width=True):
-            st_data["rec_neg"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "rec_neg"})
-            st.rerun()
-        if b_rec[2].button("Ace Subito (=)", use_container_width=True):
-            st_data["rec_err"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "rec_err"})
-            st.rerun()
+        st.write("**Ricezione Busnago:**")
+        rec_c = st.columns(3)
+        if rec_c[0].button("Positiva (#+)", use_container_width=True):
+            st_data["rec_pos"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "rec_pos"}); st.rerun()
+        if rec_c[1].button("Slash/Neg (!-)", use_container_width=True):
+            st_data["rec_neg"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "rec_neg"}); st.rerun()
+        if rec_c[2].button("Ace Subito (=)", use_container_width=True):
+            st_data["rec_err"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "rec_err"}); st.rerun()
 
-        # 3. Attacco Cambio Palla (CP)
-        st.write("**Attacco Nostro Cambio Palla (CP):**")
-        b_cp = st.columns(3)
-        if b_cp[0].button("CP Kill (#)", use_container_width=True):
-            st_data["cp_kill"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "cp_kill"})
-            st.rerun()
-        if b_cp[1].button("CP Gioco (!)", use_container_width=True):
-            st_data["cp_in"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "cp_in"})
-            st.rerun()
-        if b_cp[2].button("CP Err/Mur (=)", use_container_width=True):
-            st_data["cp_err"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "cp_err"})
-            st.rerun()
+        st.write("**Attacco Cambio Palla (CP):**")
+        cp_c = st.columns(3)
+        if cp_c[0].button("CP Kill (#)", use_container_width=True):
+            st_data["cp_kill"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "cp_kill"}); st.rerun()
+        if cp_c[1].button("CP Gioco (!)", use_container_width=True):
+            st_data["cp_in"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "cp_in"}); st.rerun()
+        if cp_c[2].button("CP Err/Mur (=)", use_container_width=True):
+            st_data["cp_err"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "cp_err"}); st.rerun()
 
-        # 4. Attacco Contrattacco (BP)
-        st.write("**Attacco Nostro Contrattacco (BP):**")
-        b_bp = st.columns(3)
-        if b_bp[0].button("BP Kill (#)", use_container_width=True):
-            st_data["bp_kill"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "bp_kill"})
-            st.rerun()
-        if b_bp[1].button("BP Gioco (!)", use_container_width=True):
-            st_data["bp_in"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "bp_in"})
-            st.rerun()
-        if b_bp[2].button("BP Err/Mur (=)", use_container_width=True):
-            st_data["bp_err"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "bp_err"})
-            st.rerun()
+        st.write("**Attacco Contrattacco (BP):**")
+        bp_c = st.columns(3)
+        if bp_c[0].button("BP Kill (#)", use_container_width=True):
+            st_data["bp_kill"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "bp_kill"}); st.rerun()
+        if bp_c[1].button("BP Gioco (!)", use_container_width=True):
+            st_data["bp_in"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "bp_in"}); st.rerun()
+        if bp_c[2].button("BP Err/Mur (=)", use_container_width=True):
+            st_data["bp_err"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "bp_err"}); st.rerun()
 
-        # 5. Muro
-        st.write("**Muro Nostro:**")
-        b_blk = st.columns(3)
-        if b_blk[0].button("Punto (#)", use_container_width=True):
-            st_data["blk_pts"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "blk_pts"})
-            st.rerun()
-        if b_blk[1].button("Tocco Difeso", use_container_width=True):
-            st_data["blk_touch"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "blk_touch"})
-            st.rerun()
-        if b_blk[2].button("Fallo/Invasione", use_container_width=True):
-            st_data["blk_fault"] += 1
-            st.session_state["history"].append({"type": "our_stat", "key": "blk_fault"})
-            st.rerun()
+        st.write("**Muro Busnago:**")
+        blk_c = st.columns(3)
+        if blk_c[0].button("Muro Punto (#)", use_container_width=True):
+            st_data["blk_pts"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "blk_pts"}); st.rerun()
+        if blk_c[1].button("Tocco Difeso", use_container_width=True):
+            st_data["blk_touch"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "blk_touch"}); st.rerun()
+        if blk_c[2].button("Invasione/Fallo", use_container_width=True):
+            st_data["blk_fault"] += 1; st.session_state["history"].append({"type": "our_stat", "key": "blk_fault"}); st.rerun()
 
 # ==========================================================
-# VISTA 2: DASHBOARD LIVE PER IL COACH (IMPATTO IMMEDIATO)
+# FUNZIONE GRAFICA: DISEGNO MINI-CAMPO VETTORIALE (MATPLOTLIB)
 # ==========================================================
-with dash_tab:
-    st.header(f"📊 Monitor Tattico Live vs {st.session_state['opp_team']} (Set {st.session_state['current_set']})")
-    
+def render_court_plot(attacks_list):
+    fig, ax = plt.subplots(figsize=(2.8, 3.8))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+
+    # Bordo Campo
+    rect = patches.Rectangle((0, 0), 1, 1, linewidth=1.5, edgecolor="black", facecolor="white")
+    ax.add_patch(rect)
+
+    # Rete
+    ax.plot([0, 1], [0.5, 0.5], color="black", linewidth=2.5)
+
+    # Linee 3 metri
+    ax.plot([0, 1], [0.67, 0.67], color="black", linewidth=1.0)
+    ax.plot([0, 1], [0.33, 0.33], color="black", linewidth=1.0)
+
+    # Sottozone tratteggiate
+    for x_val in [0.33, 0.67]:
+        ax.plot([x_val, x_val], [0, 1], color="#BDC3C7", linestyle="--", linewidth=0.8)
+    for y_val in [0.17, 0.83]:
+        ax.plot([0, 1], [y_val, y_val], color="#BDC3C7", linestyle="--", linewidth=0.8)
+
+    # Disegna traiettorie
+    for sz, ez, ev in attacks_list:
+        start_pt = COORDS_MAP.get(sz, (0.5, 0.6))
+        end_key = f"def_{ez}"
+        end_pt = COORDS_MAP.get(end_key, (0.5, 0.2))
+
+        col = "#27AE60" if ev == "#" else ("#E74C3C" if ev == "=" else "#F39C12")
+        ax.annotate(
+            "",
+            xy=end_pt,
+            xytext=start_pt,
+            arrowprops=dict(arrowstyle="-|>", color=col, lw=1.6, mutation_scale=10)
+        )
+
+    plt.tight_layout(pad=0)
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+# ==========================================================
+# 2. DASHBOARD LIVE DEI 6 CAMPI (COACH)
+# ==========================================================
+with tab_coach:
+    st.header(f"📊 Quadro Tattico Live Coach vs {st.session_state['opp_team']} (Set {st.session_state['current_set']})")
+
+    # 1. SEMAFORO BENCHMARK SQUADRA B1
     st_d = st.session_state["match_data"]["our_stats"]
     tot_srv = st_d["srv_ace"] + st_d["srv_in"] + st_d["srv_err"]
     tot_rec = st_d["rec_pos"] + st_d["rec_neg"] + st_d["rec_err"]
@@ -407,9 +457,7 @@ with dash_tab:
     tot_att = tot_cp + tot_bp
     tot_kill = st_d["cp_kill"] + st_d["bp_kill"]
     tot_att_err = st_d["cp_err"] + st_d["bp_err"]
-    tot_blk = st_d["blk_pts"] + st_d["blk_touch"] + st_d["blk_fault"]
 
-    # Calcoli percentuali
     ace_pct = (st_d["srv_ace"] / tot_srv * 100) if tot_srv > 0 else 0
     err_srv_pct = (st_d["srv_err"] / tot_srv * 100) if tot_srv > 0 else 0
     rec_pos_pct = (st_d["rec_pos"] / tot_rec * 100) if tot_rec > 0 else 0
@@ -419,46 +467,68 @@ with dash_tab:
     tot_kill_pct = (tot_kill / tot_att * 100) if tot_att > 0 else 0
     tot_eff_pct = ((tot_kill - tot_att_err) / tot_att * 100) if tot_att > 0 else 0
 
-    st.subheader("🎯 Semaforo Benchmark Serie B1 2026-27")
-    kpi_cols = st.columns(5)
-
-    def render_kpi(col, title, val, target_str, is_ok, subtitle=""):
-        badge = "▲ IN TARGET" if is_ok else "▼ SOTTO SOGLIA"
-        color = "#10B981" if is_ok else "#EF4444"
-        col.markdown(f"""
-        <div style="background-color: #0F172A; border-left: 5px solid {color}; padding: 12px; border-radius: 6px;">
-            <div style="font-size: 0.85rem; color: #94A3B8;">{title}</div>
-            <div style="font-size: 1.6rem; font-weight: bold; color: white;">{val:.0f}%</div>
-            <div style="font-size: 0.75rem; color: {color}; font-weight: bold;">{badge} ({target_str})</div>
-            <div style="font-size: 0.70rem; color: #64748B;">{subtitle}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    render_kpi(kpi_cols[0], "Attacco CP (Kill)", cp_kill_pct, "≥35%", cp_kill_pct >= BENCHMARK_B1["att_cp"]["kill_min"], f"{st_d['cp_kill']}/{tot_cp} colpi")
-    render_kpi(kpi_cols[1], "Attacco BP (Kill)", bp_kill_pct, "≥30%", bp_kill_pct >= BENCHMARK_B1["att_bp"]["kill_min"], f"{st_d['bp_kill']}/{tot_bp} colpi")
-    render_kpi(kpi_cols[2], "Attacco Totale", tot_kill_pct, "≥32%", tot_kill_pct >= BENCHMARK_B1["att_tot"]["kill_min"], f"Eff: {tot_eff_pct:.0f}%")
-    render_kpi(kpi_cols[3], "Ricezione Pos (#+)", rec_pos_pct, "≥50%", rec_pos_pct >= BENCHMARK_B1["reception"]["pos_min"], f"Err: {rec_err_pct:.0f}%")
-    render_kpi(kpi_cols[4], "Errori Battuta", err_srv_pct, "≤10%", err_srv_pct <= BENCHMARK_B1["serve"]["err_max"], f"Ace: {ace_pct:.0f}% ({st_d['srv_ace']})")
+    st.subheader("🎯 Modello Prestazione B1: Rendimento Busnago Live")
+    k_cols = st.columns(5)
+    k_cols[0].metric("Attacco CP (Kill)", f"{cp_kill_pct:.0f}%", f"Target: ≥{BENCHMARK_B1['att_cp']['kill_min']:.0f}%")
+    k_cols[1].metric("Attacco BP (Kill)", f"{bp_kill_pct:.0f}%", f"Target: ≥{BENCHMARK_B1['att_bp']['kill_min']:.0f}%")
+    k_cols[2].metric("Attacco Tot (Kill)", f"{tot_kill_pct:.0f}%", f"Target: ≥{BENCHMARK_B1['att_tot']['kill_min']:.0f}%")
+    k_cols[3].metric("Ricezione Pos (#+)", f"{rec_pos_pct:.0f}%", f"Target: ≥{BENCHMARK_B1['reception']['pos_min']:.0f}%")
+    k_cols[4].metric("Errori Battuta", f"{err_srv_pct:.0f}%", f"Target: ≤{BENCHMARK_B1['serve']['err_max']:.0f}%", delta_color="inverse")
 
     st.markdown("---")
 
-    # Quadro Distribuzione Avversaria per Tutte le Rotazioni
-    st.subheader("🗺️ Mappa Distribuzione Palleggiatore Avversario (Basi & Spinte)")
-    d_cols = st.columns(3)
-    
+    # 2. I 6 CAMPI ROTAZIONE AVVERSARI (P1, P6, P5, P4, P3, P2)
+    st.subheader("🗺️ Mappa Grafica dei 6 Campi (Distribuzione Basi & Traiettorie per Rotazione)")
+    st.caption("Visualizzazione grafica istantanea di ogni fase: traiettorie sul campo, scelte Basi del palleggiatore e zone di battuta.")
+
+    # Griglia a 3 colonne x 2 righe
+    r1_col1, r1_col2, r1_col3 = st.columns(3)
+    r2_col1, r2_col2, r2_col3 = st.columns(3)
+    row_layout = [r1_col1, r1_col2, r1_col3, r2_col1, r2_col2, r2_col3]
+
     for idx, p in enumerate([1, 6, 5, 4, 3, 2]):
-        c_target = d_cols[idx % 3]
+        col_container = row_layout[idx]
         rot_d = st.session_state["match_data"]["rotations"][p]
         tot_rot_att = rot_d["total_att"]
-        
-        with c_target:
-            st.markdown(f"**FASE P{p} ({tot_rot_att} palloni):**")
-            if tot_rot_att > 0 and rot_d["bases"]:
-                top_choice = max(rot_d["bases"], key=rot_d["bases"].get)
-                top_pct = (rot_d["bases"][top_choice] / tot_rot_att) * 100
-                st.info(f"🔥 **Scelta dominante:** {top_choice} ({top_pct:.0f}%)")
-                for b_name, b_val in sorted(rot_d["bases"].items(), key=lambda x: x[1], reverse=True)[:3]:
-                    pct = (b_val / tot_rot_att) * 100
-                    st.progress(min(1.0, pct / 100.0), text=f"{b_name}: {pct:.0f}% ({b_val}p)")
-            else:
-                st.caption("Nessuna azione ancora registrata in questa fase.")
+
+        with col_container:
+            st.markdown(f"### 📍 FASE P{p} (P in Z{p})")
+            
+            box_c1, box_c2 = st.columns([5, 6])
+            
+            # Mini-Campo Vettoriale con traiettorie
+            with box_c1:
+                court_img = render_court_plot(rot_d["attacks"])
+                st.image(court_img, use_container_width=True)
+                st.caption(f"Tot attacchi: **{tot_rot_att}**")
+
+            # Dati Tattici Affiancati
+            with box_c2:
+                # Nostro Battitore
+                srv_name = st.session_state["our_server"][p]
+                st.write(f"**Nostro Battitore:** `{srv_name}`")
+
+                # Distribuzione Basi Centrale
+                st.write("**Basi Centrale ➔ Alzata:**")
+                if tot_rot_att > 0 and rot_d["bases"]:
+                    top_b = max(rot_d["bases"], key=rot_d["bases"].get)
+                    top_b_pct = (rot_d["bases"][top_b] / tot_rot_att) * 100
+                    st.info(f"Top: **{top_b}** ({top_b_pct:.0f}%)")
+                    for b_k, b_v in sorted(rot_d["bases"].items(), key=lambda x: x[1], reverse=True)[:3]:
+                        if b_v > 0:
+                            pct_val = (b_v / tot_rot_att) * 100
+                            st.write(f"• **{b_k}**: {pct_val:.0f}% ({b_v}p)")
+                else:
+                    st.caption("Nessuna base registrata.")
+
+                # Battute Avversarie
+                st.write("**Zone Battuta Loro:**")
+                srv_map = rot_d["serve_targets"]
+                if srv_map:
+                    top_srv = sorted(srv_map.items(), key=lambda x: x[1], reverse=True)[:2]
+                    srv_str = ", ".join([f"Z{z}: {c}" for z, c in top_srv])
+                    st.write(f"• {srv_str}")
+                else:
+                    st.caption("Nessuna battuta.")
+
+            st.markdown("---")
