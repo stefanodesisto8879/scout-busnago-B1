@@ -163,87 +163,101 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS CAMPO GRAFICO CON BORDI E SOTTOZONE ESATTE
+# STILE CSS: CAMPO DI PALLAVOLO A RETICOLO INTEGRATO (ESATTO)
 # ==========================================================
 st.markdown("""
 <style>
-    /* Bordo esterno campo identico al disegno tecnico */
-    .unified-court {
-        border: 2.5px solid #1E293B;
-        background-color: #FFFFFF;
+    /* Contenitore Campo da Pallavolo Regolamentare */
+    .court-board {
         width: 100%;
         max-width: 320px;
         margin: 0 auto;
-        padding: 0;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        border: 3px solid #1E293B;
+        background-color: #FFFFFF;
+        box-sizing: border-box;
     }
     
-    .court-net-bar {
+    /* Righe del campo senza margini Streamlit */
+    div[data-testid="column"] {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Rete spessa continua */
+    .net-divider {
         border-top: 4.5px solid #000000;
         margin: 0;
         width: 100%;
     }
     
-    .court-3m-line {
-        border-top: 1.5px solid #1E293B;
+    /* Linee 3 metri continue */
+    .line-3m {
+        border-top: 2px solid #1E293B;
         margin: 0;
         width: 100%;
     }
     
-    .court-dash-h {
-        border-top: 1.2px dashed #94A3B8;
+    /* Linee tratteggiate orizzontali */
+    .dash-h {
+        border-top: 1.5px dashed #94A3B8;
         margin: 0;
         width: 100%;
     }
 
-    /* Rimuove margini tra le colonne per unire i quadrati */
-    div[data-testid="column"] {
-        padding: 0px 1px !important;
-    }
-    
-    /* Quadrati con numero nell'angolo */
-    div.court-cell {
+    /* Singolo Quadrante del campo */
+    .quad-cell {
         position: relative;
         width: 100%;
         aspect-ratio: 1 / 1;
+        box-sizing: border-box;
+        border-right: 1.5px dashed #94A3B8;
+    }
+    .quad-cell.last-col {
+        border-right: none;
     }
     
-    div.court-num-badge {
+    /* Numero nell'angolino superiore sinistro */
+    .quad-num {
         position: absolute;
-        top: 2px;
-        left: 4px;
-        font-size: 0.65rem;
-        font-weight: 800;
-        color: #64748B;
-        z-index: 2;
+        top: 3px;
+        left: 5px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #475569;
         pointer-events: none;
+        z-index: 2;
     }
 
-    /* Bottoni delle celle campo */
-    div.court-cell button {
+    /* Bottone invisibile che riempie il 100% del quadrante */
+    .quad-cell button {
         width: 100% !important;
         height: 100% !important;
-        aspect-ratio: 1 / 1 !important;
         border-radius: 0px !important;
         border: none !important;
-        background-color: transparent !important;
+        background: transparent !important;
         color: transparent !important;
-        font-size: 0.01rem !important;
-        box-shadow: none !important;
-        margin: 0 !important;
         padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
+    
+    .quad-cell button:hover {
+        background-color: rgba(59, 130, 246, 0.1) !important;
     }
 
-    div.court-cell button:hover {
-        background-color: rgba(59, 130, 246, 0.15) !important;
+    /* Colore evidenziazione selezione attiva */
+    .quad-cell.selected-start {
+        background-color: #EF4444 !important;
     }
-
-    /* Bordo tratteggiato verticale tra le 3 colonne */
-    .dash-v-left {
-        border-left: 1.2px dashed #94A3B8;
+    .quad-cell.selected-start .quad-num {
+        color: #FFFFFF !important;
     }
-    .dash-v-right {
-        border-right: 1.2px dashed #94A3B8;
+    
+    .quad-cell.selected-end {
+        background-color: #3B82F6 !important;
+    }
+    .quad-cell.selected-end .quad-num {
+        color: #FFFFFF !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -449,7 +463,7 @@ with tab_scout:
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
 
-    # 3. CAMPO INTERO VERTICALE IDENTICO ALL'ALLEGATO
+    # 3. CAMPO INTERO VERTICALE A QUADRATI COME NELL'IMMAGINE
     with c_p3:
         st.subheader("3️⃣ Traiettoria Attacco")
         
@@ -461,80 +475,80 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
-        # Helper per creare ogni casella con numero nell'angolo e colore di selezione
-        def render_court_cell(col, num_label, key_suffix, is_selected, select_type="start"):
-            bg_style = "background-color: #EF4444 !important;" if (is_selected and select_type == "start") else (
-                "background-color: #3B82F6 !important;" if (is_selected and select_type == "end") else ""
-            )
-            text_color = "color: white !important;" if is_selected else "color: #475569;"
+        # Funzione render per ogni singolo quadrante del campo
+        def draw_field_square(col, num_label, key_suffix, is_last_col=False, select_mode="start"):
+            is_active = (st.session_state["selected_start_z"] == num_label) if select_mode == "start" else (st.session_state["selected_end_z"] == num_label)
+            cls_select = "selected-start" if (is_active and select_mode == "start") else ("selected-end" if (is_active and select_mode == "end") else "")
+            cls_border = "last-col" if is_last_col else ""
             
             with col:
                 st.markdown(f"""
-                <div class="court-cell">
-                    <div class="court-num-badge" style="{text_color}">{num_label}</div>
+                <div class="quad-cell {cls_border} {cls_select}">
+                    <div class="quad-num">{num_label}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button(" ", key=f"btn_{select_type}_{key_suffix}_{num_label}", use_container_width=True):
-                    if select_type == "start":
+                if st.button(" ", key=f"fsq_{select_mode}_{key_suffix}_{num_label}", use_container_width=True):
+                    if select_mode == "start":
                         st.session_state["selected_start_z"] = num_label
                     else:
                         st.session_state["selected_end_z"] = num_label
                     st.rerun()
 
-        # CONTENITORE CAMPO UNIFICATO
-        st.markdown('<div class="unified-court">', unsafe_allow_html=True)
+        # CONTENITORE CAMPO UNIFICATO (STRUTTURA GRAFICA)
+        st.markdown('<div class="court-board">', unsafe_allow_html=True)
 
-        # METÀ SUPERIORE: ATTACCO
-        # Riga 1 (Fondo campo attacco): 1, 6, 5
+        # --- METÀ ATTACCO SUPERIORE ---
+        # Riga 1: 1, 6, 5
         r_att1 = st.columns(3)
-        render_court_cell(r_att1[0], "1", "att", st.session_state["selected_start_z"] == "1", "start")
-        render_court_cell(r_att1[1], "6", "att", st.session_state["selected_start_z"] == "6", "start")
-        render_court_cell(r_att1[2], "5", "att", st.session_state["selected_start_z"] == "5", "start")
+        draw_field_square(r_att1[0], "1", "att", False, "start")
+        draw_field_square(r_att1[1], "6", "att", False, "start")
+        draw_field_square(r_att1[2], "5", "att", True, "start")
 
-        st.markdown('<div class="court-dash-h"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="dash-h"></div>', unsafe_allow_html=True)
 
-        # Riga 2 (Seconda linea / Pipe): 9, 8, 7
+        # Riga 2: 9, 8, 7
         r_att2 = st.columns(3)
-        render_court_cell(r_att2[0], "9", "att", st.session_state["selected_start_z"] == "9", "start")
-        render_court_cell(r_att2[1], "8", "att", st.session_state["selected_start_z"] == "8", "start")
-        render_court_cell(r_att2[2], "7", "att", st.session_state["selected_start_z"] == "7", "start")
+        draw_field_square(r_att2[0], "9", "att", False, "start")
+        draw_field_square(r_att2[1], "8", "att", False, "start")
+        draw_field_square(r_att2[2], "7", "att", True, "start")
 
-        st.markdown('<div class="court-3m-line"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="line-3m"></div>', unsafe_allow_html=True)
 
-        # Riga 3 (Sotto rete attacco): 2, 3, 4
+        # Riga 3 (Sotto rete): 2, 3, 4
         r_att3 = st.columns(3)
-        render_court_cell(r_att3[0], "2", "att", st.session_state["selected_start_z"] == "2", "start")
-        render_court_cell(r_att3[1], "3", "att", st.session_state["selected_start_z"] == "3", "start")
-        render_court_cell(r_att3[2], "4", "att", st.session_state["selected_start_z"] == "4", "start")
+        draw_field_square(r_att3[0], "2", "att", False, "start")
+        draw_field_square(r_att3[1], "3", "att", False, "start")
+        draw_field_square(r_att3[2], "4", "att", True, "start")
 
-        # RETE CENTRALE SPESSA
-        st.markdown('<div class="court-net-bar"></div>', unsafe_allow_html=True)
+        # --- RETE CENTRALE MARCATA ---
+        st.markdown('<div class="net-divider"></div>', unsafe_allow_html=True)
 
-        # METÀ INFERIORE: DIFESA
+        # --- METÀ DIFESA INFERIORE ---
         # Riga 1 (Sotto rete difesa): 4, 3, 2
         r_def1 = st.columns(3)
-        render_court_cell(r_def1[0], "4", "def", st.session_state["selected_end_z"] == "4", "end")
-        render_court_cell(r_def1[1], "3", "def", st.session_state["selected_end_z"] == "3", "end")
-        render_court_cell(r_def1[2], "2", "def", st.session_state["selected_end_z"] == "2", "end")
+        draw_field_square(r_def1[0], "4", "def", False, "end")
+        draw_field_square(r_def1[1], "3", "def", False, "end")
+        draw_field_square(r_def1[2], "2", "def", True, "end")
 
-        st.markdown('<div class="court-3m-line"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="line-3m"></div>', unsafe_allow_html=True)
 
-        # Riga 2 (Centro campo difesa): 7, 8, 9
+        # Riga 2: 7, 8, 9
         r_def2 = st.columns(3)
-        render_court_cell(r_def2[0], "7", "def", st.session_state["selected_end_z"] == "7", "end")
-        render_court_cell(r_def2[1], "8", "def", st.session_state["selected_end_z"] == "8", "end")
-        render_court_cell(r_def2[2], "9", "def", st.session_state["selected_end_z"] == "9", "end")
+        draw_field_square(r_def2[0], "7", "def", False, "end")
+        draw_field_square(r_def2[1], "8", "def", False, "end")
+        draw_field_square(r_def2[2], "9", "def", True, "end")
 
-        st.markdown('<div class="court-dash-h"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="dash-h"></div>', unsafe_allow_html=True)
 
-        # Riga 3 (Fondo campo difesa): 5, 6, 1
+        # Riga 3: 5, 6, 1
         r_def3 = st.columns(3)
-        render_court_cell(r_def3[0], "5", "def", st.session_state["selected_end_z"] == "5", "end")
-        render_court_cell(r_def3[1], "6", "def", st.session_state["selected_end_z"] == "6", "end")
-        render_court_cell(r_def3[2], "1", "def", st.session_state["selected_end_z"] == "1", "end")
+        draw_field_square(r_def3[0], "5", "def", False, "end")
+        draw_field_square(r_def3[1], "6", "def", False, "end")
+        draw_field_square(r_def3[2], "1", "def", True, "end")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Pulsanti Esito sotto al campo
         st.markdown(f"**Esito Traiettoria ({target_team}: {st.session_state['selected_start_z']} ➔ {st.session_state['selected_end_z']}):**")
         es1, es2, es3 = st.columns(3)
         
@@ -866,7 +880,7 @@ with tab_coach:
 # ==========================================================
 with tab_roster:
     st.header("👥 Inserimento Numero di Maglia e Ruolo")
-    st.write("Inserisci solo il numero e scegli il ruolo. Clicca su **Aggiungi riga** in fondo alla tabella se hai più giocatrici.")
+    st.write("Inserisci solo il numero e scegli il ruolo[cite: 2]. Clicca su **Aggiungi riga** in fondo alla tabella se hai più giocatrici.")
     
     col_ros1, col_ros2 = st.columns(2)
     
