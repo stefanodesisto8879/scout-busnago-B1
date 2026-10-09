@@ -163,14 +163,36 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS PULITO (BOTTONI RETTANGOLARI TOUCH TABLET)
+# STILE CSS: BOX SEPARATI E LINEE DI DIVISIONE NETTE
 # ==========================================================
 st.markdown("""
 <style>
+    /* Card per dividere nettamente le 4 sezioni */
+    .section-card {
+        background-color: #F8FAFC;
+        border: 1.5px solid #CBD5E1;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    /* Header della sezione con bordo inferiore */
+    .section-header {
+        font-size: 1.05rem;
+        font-weight: 800;
+        padding-bottom: 6px;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #E2E8F0;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Pulsanti touch ordinati */
     .stButton>button {
         font-weight: 700 !important;
         border-radius: 6px !important;
-        padding: 10px 4px !important;
+        padding: 8px 4px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -233,14 +255,17 @@ cur_rot = st.session_state["current_rot"]
 rot_setup = ROTATION_LINEUPS[cur_rot]
 
 # ==========================================================
-# TAB 1: RILEVAZIONE LIVE TOUCH (CRONOLOGICA)
+# TAB 1: RILEVAZIONE LIVE TOUCH (CON SEPARATORI DEFINITI)
 # ==========================================================
 with tab_scout:
     c_p1, c_p2, c_p3, c_p4 = st.columns([3, 3, 3.8, 2.2])
 
-    # 1. BATTUTA & RICEZIONE
+    # ----------------------------------------------------
+    # 1. BATTUTA & RICEZIONE (CARD CON BORDO)
+    # ----------------------------------------------------
     with c_p1:
-        st.subheader("1️⃣ Servizio & Ricezione")
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-header" style="color: #0284C7;">1️⃣ SERVIZIO & RICEZIONE</div>', unsafe_allow_html=True)
         
         st.session_state["our_server"][cur_rot] = st.text_input(
             f"Nostro Battitore in P{cur_rot}:", 
@@ -262,6 +287,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "our_stat", "key": "srv_err"})
             st.rerun()
 
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px dashed #CBD5E1;'>", unsafe_allow_html=True)
+
         st.markdown("**Ricezione Busnago:**")
         p_sel_bus = st.selectbox("Giocatrice Busnago:", roster_labels_busnago, key="sel_r_bus")
         r_b1, r_b2, r_b3 = st.columns(3)
@@ -281,7 +308,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "rec_busnago", "player": p_sel_bus, "eval": "="})
             st.rerun()
 
-        st.markdown("---")
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1.5px solid #CBD5E1;'>", unsafe_allow_html=True)
+
         st.markdown(f"**Battuta Loro in P{cur_rot}:**")
         p_sel_opp = st.selectbox("Ricevitore Avversario:", roster_labels_opp, key="sel_r_opp")
         r_o1, r_o2, r_o3 = st.columns(3)
@@ -314,11 +342,14 @@ with tab_scout:
                 m_data["rotations"][cur_rot]["serve_targets"][zn] += 1
                 st.session_state["history"].append({"type": "opp_serve", "rot": cur_rot, "key": zn})
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. BASI CENTRALE
+    # ----------------------------------------------------
+    # 2. BASI CENTRALE & COMBINAZIONI (CARD CON BORDO)
+    # ----------------------------------------------------
     with c_p2:
-        st.subheader(f"2️⃣ Basi Centrale P{cur_rot}")
-        st.caption("Combinazioni complete:")
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header" style="color: #D97706;">2️⃣ BASI CENTRALE P{cur_rot}</div>', unsafe_allow_html=True)
 
         def record_base(b_name):
             m_data["rotations"][cur_rot]["bases"][b_name] += 1
@@ -333,6 +364,8 @@ with tab_scout:
         if bs3.button("KC", use_container_width=True): record_base("KC")
         if bs4.button("K2", use_container_width=True): record_base("K2")
         if bs5.button("KF", use_container_width=True): record_base("KF")
+
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px dashed #CBD5E1;'>", unsafe_allow_html=True)
 
         st.write("**Combinazioni con Alzata (Base - Uscita):**")
         b_k1_1, b_k1_2, b_k1_3 = st.columns(3)
@@ -360,25 +393,29 @@ with tab_scout:
         if b_kf_2.button("KF-2", use_container_width=True): record_base("KF-2")
         if b_kf_3.button("KF-6", use_container_width=True): record_base("KF-6")
 
-        st.markdown("---")
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1.5px solid #CBD5E1;'>", unsafe_allow_html=True)
         st.write("🔥 **Money Time (20-25) Uscita Alzatore:**")
         mt_cols = st.columns(3)
-        if mt_cols[0].button("4", key="mt_4", use_container_width=True):
+        if mt_cols[0].button("Z4", key="mt_4", use_container_width=True):
             m_data["money_time"]["4"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "4"})
             st.rerun()
-        if mt_cols[1].button("3", key="mt_3", use_container_width=True):
+        if mt_cols[1].button("Z3", key="mt_3", use_container_width=True):
             m_data["money_time"]["3"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "3"})
             st.rerun()
-        if mt_cols[2].button("2", key="mt_2", use_container_width=True):
+        if mt_cols[2].button("Z2", key="mt_2", use_container_width=True):
             m_data["money_time"]["2"] += 1
             st.session_state["history"].append({"type": "money_time", "key": "2"})
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DIREZIONE ATTACCO CON BOTTONI RETTANGOLARI PULITI
+    # ----------------------------------------------------
+    # 3. DIREZIONE ATTACCO CON LINEE DI DIVISIONE TRA LE ZONE
+    # ----------------------------------------------------
     with c_p3:
-        st.subheader("3️⃣ Direzione Attacco")
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-header" style="color: #059669;">3️⃣ DIREZIONE ATTACCO</div>', unsafe_allow_html=True)
         
         target_team = st.radio(
             "Squadra in Attacco:",
@@ -388,8 +425,10 @@ with tab_scout:
         )
         st.session_state["att_team_target"] = target_team
 
+        st.markdown("<hr style='margin: 6px 0; border: none; border-top: 1px solid #CBD5E1;'>", unsafe_allow_html=True)
+
         # Selezione Partenza Attacco
-        st.markdown(f"**Partenza Attacco (Attivo: Posto {st.session_state['selected_start_z']}):**")
+        st.markdown(f"**📍 Origine Attacco (Attivo: Posto {st.session_state['selected_start_z']}):**")
         row_o1 = st.columns(3)
         if row_o1[0].button("Posto 4", type="primary" if st.session_state["selected_start_z"] == "4" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "4"; st.rerun()
@@ -406,10 +445,11 @@ with tab_scout:
         if row_o2[2].button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "1"; st.rerun()
 
-        st.markdown("---")
+        # LINEA DI DIVISIONE NETTA TRA PARTENZA E ARRIVO
+        st.markdown("<hr style='margin: 10px 0; border: none; border-top: 2px dashed #94A3B8;'>", unsafe_allow_html=True)
 
         # Selezione Arrivo Difesa
-        st.markdown(f"**Arrivo Difesa (Attivo: Zona {st.session_state['selected_end_z']}):**")
+        st.markdown(f"**🎯 Arrivo Difesa (Attivo: Zona {st.session_state['selected_end_z']}):**")
         row_d1 = st.columns(3)
         if row_d1[0].button("D4 (Rete)", type="primary" if st.session_state["selected_end_z"] == "4" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "4"; st.rerun()
@@ -433,6 +473,8 @@ with tab_scout:
             st.session_state["selected_end_z"] = "6"; st.rerun()
         if row_d3[2].button("D1 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "1" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "1"; st.rerun()
+
+        st.markdown("<hr style='margin: 10px 0; border: none; border-top: 1.5px solid #CBD5E1;'>", unsafe_allow_html=True)
 
         st.markdown(f"**Registra Esito ({target_team}: Z{st.session_state['selected_start_z']} ➔ D{st.session_state['selected_end_z']}):**")
         es1, es2, es3 = st.columns(3)
@@ -475,10 +517,14 @@ with tab_scout:
                 m_data["our_stats"]["cp_err"] += 1
                 st.session_state["history"].append({"type": "busnago_attack", "rot": cur_rot})
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # 4. MURO & FASI BREAK POINT
+    # ----------------------------------------------------
+    # 4. MURO & FASI BREAK POINT (CARD CON BORDO)
+    # ----------------------------------------------------
     with c_p4:
-        st.subheader("4️⃣ Muro & BP")
+        st.markdown('<div class="section-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-header" style="color: #7C3AED;">4️⃣ MURO & BP</div>', unsafe_allow_html=True)
 
         st.markdown("**Muro Busnago:**")
         mb1, mb2 = st.columns(2)
@@ -491,6 +537,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "our_stat", "key": "blk_err"})
             st.rerun()
 
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px dashed #CBD5E1;'>", unsafe_allow_html=True)
+
         st.markdown("**Muro Avversario:**")
         mo1, mo2 = st.columns(2)
         if mo1.button("Punto (#)", key="m_opp_pt", use_container_width=True):
@@ -502,7 +550,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "opp_stat", "key": "blk_err"})
             st.rerun()
 
-        st.markdown("---")
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1.5px solid #CBD5E1;'>", unsafe_allow_html=True)
+
         st.markdown("**Break Point Busnago:**")
         bp_b1, bp_b2 = st.columns(2)
         if bp_b1.button("Kill (#)", key="bp_bus_kill", use_container_width=True):
@@ -514,6 +563,8 @@ with tab_scout:
             st.session_state["history"].append({"type": "our_stat", "key": "bp_err"})
             st.rerun()
 
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px dashed #CBD5E1;'>", unsafe_allow_html=True)
+
         st.markdown("**Break Point Avversario:**")
         bp_o1, bp_o2 = st.columns(2)
         if bp_o1.button("Kill (#)", key="bp_opp_kill", use_container_width=True):
@@ -524,6 +575,7 @@ with tab_scout:
             m_data["opp_stats"]["bp_err"] += 1
             st.session_state["history"].append({"type": "opp_stat", "key": "bp_err"})
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # FUNZIONE GRAFICA VETTORIALE CAMPO CON NUMERI NELL'ANGOLO
