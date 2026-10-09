@@ -35,13 +35,16 @@ ROTATION_LINEUPS = {
     2: {"type": 2, "label": "Attacco a 2"},
 }
 
+# Coordinate campo: ogni metà campo è un quadrato (0..1 x 0.5..1.0 e 0..1 x 0..0.5)
 COORDS_MAP = {
-    "4": (0.17, 0.55), "3": (0.50, 0.55), "2": (0.83, 0.55),
-    "7": (0.17, 0.70), "8": (0.50, 0.70), "9": (0.83, 0.70),
-    "5": (0.17, 0.88), "6": (0.50, 0.88), "1": (0.83, 0.88),
-    "def_4": (0.17, 0.45), "def_3": (0.50, 0.45), "def_2": (0.83, 0.45),
-    "def_7": (0.17, 0.30), "def_8": (0.50, 0.30), "def_9": (0.83, 0.30),
-    "def_5": (0.17, 0.12), "def_6": (0.50, 0.12), "def_1": (0.83, 0.12),
+    # Metà Attacco superiore (da y=0.5 a 1.0)
+    "4": (0.17, 0.58), "3": (0.50, 0.58), "2": (0.83, 0.58),
+    "7": (0.17, 0.75), "8": (0.50, 0.75), "9": (0.83, 0.75),
+    "5": (0.17, 0.91), "6": (0.50, 0.91), "1": (0.83, 0.91),
+    # Metà Difesa inferiore (da y=0.0 a 0.5)
+    "def_4": (0.17, 0.42), "def_3": (0.50, 0.42), "def_2": (0.83, 0.42),
+    "def_7": (0.17, 0.25), "def_8": (0.50, 0.25), "def_9": (0.83, 0.25),
+    "def_5": (0.17, 0.09), "def_6": (0.50, 0.09), "def_1": (0.83, 0.09),
 }
 
 # ==========================================================
@@ -163,7 +166,7 @@ roster_labels_busnago = get_player_labels(st.session_state["roster_df_busnago"])
 roster_labels_opp = get_player_labels(st.session_state["roster_df_opp"])
 
 # ==========================================================
-# STILE CSS: BOX SEPARATI E LINEE DI DIVISIONE NETTE
+# STILE CSS PULITO: CARD CON BORDI E BOTTONI COMPATTI
 # ==========================================================
 st.markdown("""
 <style>
@@ -189,7 +192,7 @@ st.markdown("""
     .stButton>button {
         font-weight: 700 !important;
         border-radius: 6px !important;
-        padding: 8px 4px !important;
+        padding: 9px 4px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -252,7 +255,7 @@ cur_rot = st.session_state["current_rot"]
 rot_setup = ROTATION_LINEUPS[cur_rot]
 
 # ==========================================================
-# TAB 1: RILEVAZIONE LIVE TOUCH (CON SEPARATORI DEFINITI)
+# TAB 1: RILEVAZIONE LIVE TOUCH (CRONOLOGICA)
 # ==========================================================
 with tab_scout:
     c_p1, c_p2, c_p3, c_p4 = st.columns([3, 3, 3.8, 2.2])
@@ -403,7 +406,7 @@ with tab_scout:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DIREZIONE ATTACCO CON SEPARAZIONE NETTA
+    # 3. DIREZIONE ATTACCO CON ZONE ORIENTATE SECONDO IL FOGLIO
     with c_p3:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-header" style="color: #059669;">3️⃣ DIREZIONE ATTACCO</div>', unsafe_allow_html=True)
@@ -418,8 +421,10 @@ with tab_scout:
 
         st.markdown("<hr style='margin: 6px 0; border: none; border-top: 1px solid #CBD5E1;'>", unsafe_allow_html=True)
 
-        # Selezione Partenza Attacco
+        # Selezione Partenza Attacco (Zone secondo la disposizione standard del campo: Posto 4 a sx, 3 centro, 2 a dx)
         st.markdown(f"**📍 Origine Attacco (Attivo: Posto {st.session_state['selected_start_z']}):**")
+        
+        # Sotto Rete (Prima Linea): 4, 3, 2
         row_o1 = st.columns(3)
         if row_o1[0].button("Posto 4", type="primary" if st.session_state["selected_start_z"] == "4" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "4"; st.rerun()
@@ -428,19 +433,31 @@ with tab_scout:
         if row_o1[2].button("Posto 2", type="primary" if st.session_state["selected_start_z"] == "2" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "2"; st.rerun()
 
+        # Linea Mediana / Pipe: 7, 8, 9
         row_o2 = st.columns(3)
-        if row_o2[0].button("Pipe (Z8)", type="primary" if st.session_state["selected_start_z"] == "8" else "secondary", use_container_width=True):
+        if row_o2[0].button("Zona 7", type="primary" if st.session_state["selected_start_z"] == "7" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "7"; st.rerun()
+        if row_o2[1].button("Pipe (Z8)", type="primary" if st.session_state["selected_start_z"] == "8" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "8"; st.rerun()
-        if row_o2[1].button("Zona 6", type="primary" if st.session_state["selected_start_z"] == "6" else "secondary", use_container_width=True):
+        if row_o2[2].button("Zona 9", type="primary" if st.session_state["selected_start_z"] == "9" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "9"; st.rerun()
+
+        # Fondo Campo: 5, 6, 1
+        row_o3 = st.columns(3)
+        if row_o3[0].button("Zona 5", type="primary" if st.session_state["selected_start_z"] == "5" else "secondary", use_container_width=True):
+            st.session_state["selected_start_z"] = "5"; st.rerun()
+        if row_o3[1].button("Zona 6", type="primary" if st.session_state["selected_start_z"] == "6" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "6"; st.rerun()
-        if row_o2[2].button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
+        if row_o3[2].button("Zona 1 (Opp)", type="primary" if st.session_state["selected_start_z"] == "1" else "secondary", use_container_width=True):
             st.session_state["selected_start_z"] = "1"; st.rerun()
 
         # Separatore visivo netto tra origine e destinazione
-        st.markdown("<hr style='margin: 10px 0; border: none; border-top: 2px dashed #94A3B8;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 10px 0; border: none; border-top: 2.5px solid #000000;'>", unsafe_allow_html=True)
 
         # Selezione Arrivo Difesa
         st.markdown(f"**🎯 Arrivo Difesa (Attivo: Zona {st.session_state['selected_end_z']}):**")
+        
+        # Sotto rete difesa: D4, D3, D2
         row_d1 = st.columns(3)
         if row_d1[0].button("D4 (Rete)", type="primary" if st.session_state["selected_end_z"] == "4" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "4"; st.rerun()
@@ -449,6 +466,7 @@ with tab_scout:
         if row_d1[2].button("D2 (Rete)", type="primary" if st.session_state["selected_end_z"] == "2" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "2"; st.rerun()
 
+        # Centro campo difesa: D7, D8, D9
         row_d2 = st.columns(3)
         if row_d2[0].button("D7", type="primary" if st.session_state["selected_end_z"] == "7" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "7"; st.rerun()
@@ -457,6 +475,7 @@ with tab_scout:
         if row_d2[2].button("D9", type="primary" if st.session_state["selected_end_z"] == "9" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "9"; st.rerun()
 
+        # Fondo campo difesa: D5, D6, D1
         row_d3 = st.columns(3)
         if row_d3[0].button("D5 (Fondo)", type="primary" if st.session_state["selected_end_z"] == "5" else "secondary", use_container_width=True):
             st.session_state["selected_end_z"] = "5"; st.rerun()
@@ -567,40 +586,42 @@ with tab_scout:
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# FUNZIONE GRAFICA VETTORIALE: CAMPO RETTANGOLARE REGOLAMENTARE (1:2)
+# FUNZIONE GRAFICA VETTORIALE: RETTANGOLO 1:2 (DUE QUADRATI ESATTI)
 # ==========================================================
 def render_court_plot_with_corner_labels(attacks_list):
-    # Proporzioni campo regolamentari (larghezza: 9m, lunghezza: 18m -> rapporto 1:2)
+    # Proporzioni campo regolamentari (larghezza 1.0, altezza 2.0 -> due quadrati sovrapposti)
     fig, ax = plt.subplots(figsize=(2.4, 4.8))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_aspect("equal")
     ax.axis("off")
 
-    # Bordo esterno rettangolare continuo
+    # Bordo esterno rettangolare del campo (due quadrati uniti)
     rect = patches.Rectangle((0, 0), 1, 1, linewidth=2.0, edgecolor="#1E293B", facecolor="#FFFFFF")
     ax.add_patch(rect)
 
-    # Rete centrale marcata
-    ax.plot([0, 1], [0.5, 0.5], color="#000000", linewidth=3.0)
+    # Rete centrale marcata (divide esattamente i due quadrati a metà y=0.5)
+    ax.plot([0, 1], [0.5, 0.5], color="#000000", linewidth=3.2)
 
-    # Linee dei 3 metri continue
+    # Linee dei 3 metri continue (a 1/3 e 2/3 di ogni quadrato da 0.5)
     ax.plot([0, 1], [0.666, 0.666], color="#1E293B", linewidth=1.4)
     ax.plot([0, 1], [0.333, 0.333], color="#1E293B", linewidth=1.4)
 
-    # Linee interne tratteggiate verticali
+    # Linee interne tratteggiate verticali (suddivisione in 3 colonne)
     for x_val in [0.333, 0.666]:
         ax.plot([x_val, x_val], [0, 1], color="#94A3B8", linestyle="--", linewidth=0.9)
 
-    # Linee interne tratteggiate orizzontali (divisione fondo campo)
+    # Linee interne tratteggiate orizzontali (suddivisione in 3 righe per quadrato)
     for y_val in [0.166, 0.833]:
         ax.plot([0, 1], [y_val, y_val], color="#94A3B8", linestyle="--", linewidth=0.9)
 
-    # Numeri delle sottozone ancorati in alto a sinistra di ogni settore
+    # Numeri delle sottozone ancorati in alto a sinistra di ciascuna cella (orientamento reale)
     corner_labels = {
-        (0.02, 0.96): "1", (0.35, 0.96): "6", (0.68, 0.96): "5",
-        (0.02, 0.79): "9", (0.35, 0.79): "8", (0.68, 0.79): "7",
-        (0.02, 0.63): "2", (0.35, 0.63): "3", (0.68, 0.63): "4",
+        # Metà attacco: Posto 4 a sinistra sotto rete, 2 a destra
+        (0.02, 0.63): "4", (0.35, 0.63): "3", (0.68, 0.63): "2",
+        (0.02, 0.79): "7", (0.35, 0.79): "8", (0.68, 0.79): "9",
+        (0.02, 0.96): "5", (0.35, 0.96): "6", (0.68, 0.96): "1",
+        # Metà difesa: D4 a sinistra sotto rete, D2 a destra
         (0.02, 0.46): "4", (0.35, 0.46): "3", (0.68, 0.46): "2",
         (0.02, 0.30): "7", (0.35, 0.30): "8", (0.68, 0.30): "9",
         (0.02, 0.13): "5", (0.35, 0.13): "6", (0.68, 0.13): "1",
@@ -608,7 +629,7 @@ def render_court_plot_with_corner_labels(attacks_list):
     for (lx, ly), ltxt in corner_labels.items():
         ax.text(lx, ly, ltxt, fontsize=6.2, color="#64748B", fontweight="bold")
 
-    # Tracciamento traiettorie con freccia proporzionata
+    # Tracciamento traiettorie con freccia
     for sz, ez, ev in attacks_list:
         start_pt = COORDS_MAP.get(sz, (0.5, 0.6))
         end_key = f"def_{ez}"
